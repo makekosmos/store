@@ -1,0 +1,28 @@
+name: Publish catalog
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Sign catalog
+        run: node scripts/sign-catalog.mjs
+        env:
+          STORE_SIGNING_KEY: ${{ secrets.STORE_SIGNING_KEY }}
+      - name: Publish immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sequence="$(node -p "require('./catalog.json').sequence")"
+          gh release create "catalog-${sequence}" catalog.json catalog.envelope.json \
+            --latest --title "Store catalog ${sequence}" \
+            --notes "Signed Kosmos Store catalog sequence ${sequence}."

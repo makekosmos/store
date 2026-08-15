@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "sequence": 1,
+  "issued_at": "2026-08-15T00:00:00Z",
+  "expires_at": "2027-08-15T00:00:00Z",
+  "listings": [
+    {
+      "id": "com.kosmos.shell",
+      "kind": "kosmos-package",
+      "name": "Kosmos Shell",
+      "publisher": "Kosmos",
+      "publisher_tier": "kosmos",
+      "description": "Быстрый лаунчер и интерфейс команд Kosmos.",
+      "categories": ["productivity", "launcher"],
+      "availability": { "platforms": ["windows"] },
+      "data_compatibility": [],
+      "distribution": { "package_id": "com.kosmos.shell", "version": "0.1.0" },
+      "connects_to": null,
+      "icon_url": null,
+      "screenshots": []
+    },
+    {
+      "id": "external.obsidian",
+      "kind": "external-app",
+      "name": "Obsidian",
+      "publisher": "Dynalist Inc.",
+      "publisher_tier": "verified",
+      "description": "Markdown-редактор, который можно подключить к ARK через отдельный bridge-пакет.",
+      "categories": ["notes", "markdown"],
+      "availability": { "platforms": ["windows", "macos", "linux", "ios", "android"] },
+      "data_compatibility": [],
+      "distribution": { "official_url": "https://obsidian.md/download" },
+      "connects_to": null,
+      "icon_url": null,
+      "screenshots": []
+    }
+  ]
+}
