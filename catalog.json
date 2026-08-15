@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 1,
+  "sequence": 2,
   "issued_at": "2026-08-15T00:00:00Z",
   "expires_at": "2027-08-15T00:00:00Z",
   "listings": [
@@ -20,15 +20,69 @@
       "screenshots": []
     },
     {
+      "id": "com.kosmos.eden",
+      "kind": "kosmos-package",
+      "name": "Eden",
+      "publisher": "Kosmos",
+      "publisher_tier": "kosmos",
+      "description": "Заметки и работа с каноническими объектами ARK.",
+      "categories": ["notes", "productivity"],
+      "availability": { "platforms": ["windows"] },
+      "data_compatibility": [
+        { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.eden", "fidelity": "native" },
+        { "type": "com.kosmos.image", "versions": ">=1.0.0", "roles": ["read"], "via": "com.kosmos.eden", "fidelity": "native" }
+      ],
+      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.4" },
+      "connects_to": null,
+      "icon_url": null,
+      "screenshots": []
+    },
+    {
+      "id": "com.kosmos.delphi",
+      "kind": "kosmos-package",
+      "name": "Delphi",
+      "publisher": "Kosmos",
+      "publisher_tier": "kosmos",
+      "description": "Задачи и проекты на базе канонических объектов ARK.",
+      "categories": ["productivity", "tasks"],
+      "availability": { "platforms": ["windows"] },
+      "data_compatibility": [
+        { "type": "com.kosmos.task", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.delphi", "fidelity": "native" }
+      ],
+      "distribution": { "package_id": "com.kosmos.delphi", "version": "0.1.8" },
+      "connects_to": null,
+      "icon_url": null,
+      "screenshots": []
+    },
+    {
+      "id": "ark-markdown-bridge",
+      "kind": "integration",
+      "name": "ARK Markdown Bridge",
+      "publisher": "Kosmos",
+      "publisher_tier": "kosmos",
+      "description": "Мост между каноническими заметками ARK и Markdown-файлами.",
+      "categories": ["integrations", "markdown"],
+      "availability": { "platforms": ["windows"] },
+      "data_compatibility": [
+        { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["import", "export", "sync"], "via": "external.obsidian", "fidelity": "lossless" }
+      ],
+      "distribution": { "package_id": "ark-markdown-bridge", "version": "0.1.0", "connects_to": "external.obsidian" },
+      "connects_to": "external.obsidian",
+      "icon_url": null,
+      "screenshots": []
+    },
+    {
       "id": "external.obsidian",
       "kind": "external-app",
       "name": "Obsidian",
       "publisher": "Dynalist Inc.",
       "publisher_tier": "verified",
-      "description": "Markdown-редактор, который можно подключить к ARK через отдельный bridge-пакет.",
+      "description": "Markdown-редактор для работы с заметками через ARK bridge.",
       "categories": ["notes", "markdown"],
       "availability": { "platforms": ["windows", "macos", "linux", "ios", "android"] },
-      "data_compatibility": [],
+      "data_compatibility": [
+        { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["import", "export"], "via": "external.obsidian", "fidelity": "lossy" }
+      ],
       "distribution": { "official_url": "https://obsidian.md/download" },
       "connects_to": null,
       "icon_url": null,
