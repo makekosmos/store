@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 3,
-  "issued_at": "2026-08-18T00:32:06.411Z",
-  "expires_at": "2027-08-18T00:32:06.411Z",
+  "sequence": 4,
+  "issued_at": "2026-08-18T11:25:06.423Z",
+  "expires_at": "2027-08-18T11:25:06.423Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -32,7 +32,7 @@
         { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.eden", "fidelity": "native" },
         { "type": "com.kosmos.image", "versions": ">=1.0.0", "roles": ["read"], "via": "com.kosmos.eden", "fidelity": "native" }
       ],
-      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.4" },
+      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.5" },
       "connects_to": null,
       "icon_url": null,
       "screenshots": []
