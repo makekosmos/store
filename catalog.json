@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 2,
-  "issued_at": "2026-08-15T00:00:00Z",
-  "expires_at": "2027-08-15T00:00:00Z",
+  "sequence": 3,
+  "issued_at": "2026-08-18T00:32:06.411Z",
+  "expires_at": "2027-08-18T00:32:06.411Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -14,7 +14,7 @@
       "categories": ["productivity", "launcher"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.shell", "version": "0.1.0" },
+      "distribution": { "package_id": "com.kosmos.shell", "version": "0.2.0" },
       "connects_to": null,
       "icon_url": null,
       "screenshots": []
