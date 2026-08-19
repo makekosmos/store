@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 4,
-  "issued_at": "2026-08-18T11:25:06.423Z",
-  "expires_at": "2027-08-18T11:25:06.423Z",
+  "sequence": 5,
+  "issued_at": "2026-08-19T22:07:48.944Z",
+  "expires_at": "2027-08-19T22:07:48.944Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -32,9 +32,9 @@
         { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.eden", "fidelity": "native" },
         { "type": "com.kosmos.image", "versions": ">=1.0.0", "roles": ["read"], "via": "com.kosmos.eden", "fidelity": "native" }
       ],
-      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.5" },
+      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.6" },
       "connects_to": null,
-      "icon_url": null,
+      "icon_url": "https://github.com/makekosmos/eden/releases/download/v0.5.6/icon.png",
       "screenshots": []
     },
     {
@@ -49,9 +49,9 @@
       "data_compatibility": [
         { "type": "com.kosmos.task", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.delphi", "fidelity": "native" }
       ],
-      "distribution": { "package_id": "com.kosmos.delphi", "version": "0.1.8" },
+      "distribution": { "package_id": "com.kosmos.delphi", "version": "0.1.9" },
       "connects_to": null,
-      "icon_url": null,
+      "icon_url": "https://github.com/makekosmos/delphi/releases/download/v0.1.9/icon.png",
       "screenshots": []
     },
     {
