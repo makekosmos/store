@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 7,
+  "sequence": 8,
   "issued_at": "2026-08-26T00:00:00Z",
   "expires_at": "2027-08-26T00:00:00Z",
   "listings": [
@@ -16,7 +16,7 @@
       "data_compatibility": [],
       "distribution": { "package_id": "com.kosmos.shell", "version": "0.2.0" },
       "connects_to": null,
-      "icon_url": null,
+      "icon_url": "https://github.com/makekosmos/store/releases/latest/download/kosmos-shell.png",
       "screenshots": []
     },
     {
@@ -31,7 +31,7 @@
       "data_compatibility": [],
       "distribution": { "package_id": "com.kosmos.arcadia", "version": "0.1.7" },
       "connects_to": null,
-      "icon_url": "https://github.com/makekosmos/arcadia/releases/download/v0.1.7/icon.png",
+      "icon_url": "https://github.com/makekosmos/store/releases/latest/download/arcadia.png",
       "screenshots": []
     },
     {
@@ -46,7 +46,7 @@
       "data_compatibility": [],
       "distribution": { "package_id": "com.kosmos.dictation", "version": "0.2.0" },
       "connects_to": null,
-      "icon_url": "https://github.com/makekosmos/dictation/releases/download/v0.2.0/icon.png",
+      "icon_url": "https://github.com/makekosmos/store/releases/latest/download/dictation.png",
       "screenshots": []
     },
     {
