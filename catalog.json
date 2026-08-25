@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 6,
-  "issued_at": "2026-08-19T22:57:39.156Z",
-  "expires_at": "2027-08-19T22:57:39.156Z",
+  "sequence": 7,
+  "issued_at": "2026-08-26T00:00:00Z",
+  "expires_at": "2027-08-26T00:00:00Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -20,38 +20,33 @@
       "screenshots": []
     },
     {
-      "id": "com.kosmos.eden",
+      "id": "com.kosmos.arcadia",
       "kind": "kosmos-package",
-      "name": "Eden",
+      "name": "Arcadia",
       "publisher": "Kosmos",
       "publisher_tier": "kosmos",
-      "description": "Заметки и работа с каноническими объектами ARK.",
-      "categories": ["notes", "productivity"],
+      "description": "Игровая библиотека и запуск локальных игр.",
+      "categories": ["games", "library"],
       "availability": { "platforms": ["windows"] },
-      "data_compatibility": [
-        { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.eden", "fidelity": "native" },
-        { "type": "com.kosmos.image", "versions": ">=1.0.0", "roles": ["read"], "via": "com.kosmos.eden", "fidelity": "native" }
-      ],
-      "distribution": { "package_id": "com.kosmos.eden", "version": "0.5.7" },
+      "data_compatibility": [],
+      "distribution": { "package_id": "com.kosmos.arcadia", "version": "0.1.7" },
       "connects_to": null,
-      "icon_url": "https://github.com/makekosmos/eden/releases/download/v0.5.7/icon.png",
+      "icon_url": "https://github.com/makekosmos/arcadia/releases/download/v0.1.7/icon.png",
       "screenshots": []
     },
     {
-      "id": "com.kosmos.delphi",
+      "id": "com.kosmos.dictation",
       "kind": "kosmos-package",
-      "name": "Delphi",
+      "name": "Dictation",
       "publisher": "Kosmos",
       "publisher_tier": "kosmos",
-      "description": "Задачи и проекты на базе канонических объектов ARK.",
-      "categories": ["productivity", "tasks"],
+      "description": "Голосовой ввод с локальными и облачными моделями.",
+      "categories": ["productivity", "accessibility"],
       "availability": { "platforms": ["windows"] },
-      "data_compatibility": [
-        { "type": "com.kosmos.task", "versions": ">=1.0.0", "roles": ["read", "edit"], "via": "com.kosmos.delphi", "fidelity": "native" }
-      ],
-      "distribution": { "package_id": "com.kosmos.delphi", "version": "0.1.10" },
+      "data_compatibility": [],
+      "distribution": { "package_id": "com.kosmos.dictation", "version": "0.2.0" },
       "connects_to": null,
-      "icon_url": "https://github.com/makekosmos/delphi/releases/download/v0.1.10/icon.png",
+      "icon_url": "https://github.com/makekosmos/dictation/releases/download/v0.2.0/icon.png",
       "screenshots": []
     },
     {
