@@ -1,0 +1,34 @@
+name: Store quality
+
+on:
+  pull_request:
+    paths:
+      - "catalog.json"
+      - "catalog.envelope.json"
+      - "scripts/**"
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate catalog without secrets
+        run: node scripts/validate-catalog.mjs
+      - name: Validate catalog fixtures
+        run: node --test scripts/validate-catalog.test.mjs
+      - name: Run ephemeral signing dry-run
+        run: node scripts/dry-run.mjs
+      - name: Check Actions syntax
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2
+      - name: Check signing script syntax
+        run: node --check scripts/sign-catalog.mjs
