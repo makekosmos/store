@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { generateKeyPairSync, sign, verify } from "node:crypto";
-import { validateCatalog } from "./validate-catalog.mjs";
-
 const catalogBytes = await readFile(new URL("../catalog.json", import.meta.url));
 const catalog = JSON.parse(catalogBytes);
 const { privateKey, publicKey } = generateKeyPairSync("ed25519");
