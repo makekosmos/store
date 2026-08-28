@@ -12,4 +12,6 @@ Production trust:
 
 Edit `catalog.json`, increment `sequence`, then run the `Publish catalog`
 workflow. The private key exists only in the `STORE_SIGNING_KEY` repository
-secret.
+secret. The checked-in `catalog.envelope.json` intentionally remains the
+previous signed envelope until that CI secret is available; do not generate a
+production signature locally.
