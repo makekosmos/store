@@ -14,10 +14,23 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
+      - name: Validate release sequence and immutable tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sequence="$(node -p "require('./catalog.json').sequence")"
+          if gh release view "catalog-${sequence}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "catalog-${sequence} already exists; immutable releases cannot be replaced"
+            exit 1
+          fi
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 100 --json tagName --jq '.[].tagName' | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
+          STORE_LATEST_SEQUENCE="${latest:-0}" node scripts/check-release-sequence.mjs
       - name: Sign catalog
         run: node scripts/sign-catalog.mjs
         env:
           STORE_SIGNING_KEY: ${{ secrets.STORE_SIGNING_KEY }}
+      - name: Verify signed envelope
+        run: node scripts/validate-catalog.mjs --strict-envelope
       - name: Publish immutable release
         env:
           GH_TOKEN: ${{ github.token }}
