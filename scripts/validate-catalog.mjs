@@ -6,6 +6,8 @@ import { createPublicKey, verify } from "node:crypto";
 
 export const PRODUCTION_KEY_ID = "kosmos-store-2026";
 export const PRODUCTION_PUBLIC_KEY = "it14mzPjoqdgaHXdCDIjCoUgGXf/f5izJrGRUuk3o/A=";
+// Keep historical keys here during rotation so already-published envelopes stay verifiable.
+export const TRUSTED_PUBLIC_KEYS = Object.freeze({ [PRODUCTION_KEY_ID]: PRODUCTION_PUBLIC_KEY });
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 const ID = /^[a-z0-9][a-z0-9._-]{1,127}$/;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -122,7 +124,7 @@ function publicKeyFromRaw(raw) {
   return createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, bytes]), format: "der", type: "spki" });
 }
 
-export function validateEnvelope(envelope, { publicKey = PRODUCTION_PUBLIC_KEY, catalogBytes, strictEnvelope = false } = {}) {
+export function validateEnvelope(envelope, { publicKey, catalogBytes, strictEnvelope = false } = {}) {
   assert(isObject(envelope) && typeof envelope.bytes === "string", "invalid committed envelope bytes");
   const envelopeBytes = decodeBase64(envelope.bytes, "envelope bytes");
   let envelopeCatalog;
@@ -134,10 +136,10 @@ export function validateEnvelope(envelope, { publicKey = PRODUCTION_PUBLIC_KEY, 
   }
   const signatures = envelope.signatures;
   assert(isObject(signatures) && signatures.schema_version === 1 && Array.isArray(signatures.signatures) && signatures.signatures.length > 0, "invalid signature records");
-  const key = publicKeyFromRaw(publicKey);
   for (const record of signatures.signatures) {
-    assert(isObject(record) && record.key_id === PRODUCTION_KEY_ID && record.algorithm === "ed25519", "invalid signature record");
+    assert(isObject(record) && typeof record.key_id === "string" && TRUSTED_PUBLIC_KEYS[record.key_id] && record.algorithm === "ed25519", "invalid signature record");
     const signature = decodeBase64(record.signature, "signature");
+    const key = publicKeyFromRaw(publicKey ?? TRUSTED_PUBLIC_KEYS[record.key_id]);
     assert(signature.length === 64 && verify(null, envelopeBytes, key, signature), "committed envelope signature does not verify");
   }
   return { payload: envelopeCatalog, bytes: envelopeBytes };
