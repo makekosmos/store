@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate catalog without secrets
-        run: node scripts/validate-catalog.mjs
+        run: node scripts/validate-catalog.mjs --strict-envelope
       - name: Validate catalog fixtures
         run: node --test scripts/validate-catalog.test.mjs
       - name: Run ephemeral signing dry-run
@@ -32,3 +32,5 @@ jobs:
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2
       - name: Check signing script syntax
         run: node --check scripts/sign-catalog.mjs
+      - name: Check release preflight script syntax
+        run: node --check scripts/check-release-sequence.mjs

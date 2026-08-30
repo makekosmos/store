@@ -1,20 +1,17 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createPublicKey, sign, verify } from "node:crypto";
+import { validateCatalogDocument, validateCatalog, PRODUCTION_KEY_ID, PRODUCTION_PUBLIC_KEY } from "./validate-catalog.mjs";
 
-const keyId = "kosmos-store-2026";
-const expectedPublicKey = "it14mzPjoqdgaHXdCDIjCoUgGXf/f5izJrGRUuk3o/A=";
 const privateKey = process.env.STORE_SIGNING_KEY;
 if (!privateKey) throw new Error("STORE_SIGNING_KEY is required");
 
 const bytes = await readFile(new URL("../catalog.json", import.meta.url));
 const document = JSON.parse(bytes);
-if (document.schema_version !== 1 || !Number.isSafeInteger(document.sequence)) {
-  throw new Error("invalid catalog schema or sequence");
-}
+validateCatalogDocument(document);
 
 const publicDer = createPublicKey(privateKey).export({ type: "spki", format: "der" });
 const publicRaw = publicDer.subarray(publicDer.length - 32).toString("base64");
-if (publicRaw !== expectedPublicKey) throw new Error("signing key does not match production trust");
+if (publicRaw !== PRODUCTION_PUBLIC_KEY) throw new Error("signing key does not match production trust");
 
 const signature = sign(null, bytes, privateKey);
 if (!verify(null, bytes, createPublicKey(privateKey), signature)) {
@@ -27,13 +24,14 @@ const envelope = {
     schema_version: 1,
     signatures: [
       {
-        key_id: keyId,
+        key_id: PRODUCTION_KEY_ID,
         algorithm: "ed25519",
         signature: signature.toString("base64")
       }
     ]
   }
 };
+validateCatalog(document, envelope, { strictEnvelope: true, catalogBytes: bytes });
 await writeFile(
   new URL("../catalog.envelope.json", import.meta.url),
   `${JSON.stringify(envelope, null, 2)}\n`

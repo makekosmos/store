@@ -13,7 +13,8 @@ Production trust:
 Edit `catalog.json`, increment `sequence`, then run the `Publish catalog`
 workflow. CI rejects an existing `catalog-N` release and requires the new
 sequence to be greater than every prior immutable catalog release before it
-uses the signing secret. The private key exists only in the
+uses the signing secret. Publication checks the release and tag before the key
+is loaded, then signs and verifies the exact reviewed catalog bytes. The private key exists only in the
 `STORE_SIGNING_KEY` repository secret. The checked-in
 `catalog.envelope.json` intentionally remains the previous signed envelope
 until that CI secret is available; do not generate a production signature
@@ -42,9 +43,30 @@ using production credentials:
 node scripts/dry-run.mjs
 ```
 
+The dry-run creates an in-memory ephemeral Ed25519 key, validates the complete
+catalog and envelope, and never writes a release or uses `STORE_SIGNING_KEY`.
+
+For a lightweight local pre-commit check, opt into the repository hook once:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+The hook only runs when catalog, workflow, or validation scripts are staged;
+CI remains authoritative.
+
 After signing, publication operators require the envelope payload to match the
 catalog bytes with:
 
 ```powershell
 node scripts/validate-catalog.mjs --strict-envelope
 ```
+
+## Key rotation
+
+Rotate the signing key as a coordinated change: add the new public key and
+`key_id` to the validator allowlist, update the production secret, document the
+new trust key here, and publish a new monotonic `catalog-N` release. Keep old
+keys in the allowlist while historical envelopes are still served, and never
+overwrite an existing release or tag. Test the rotation with the secret-free
+dry-run before production signing.

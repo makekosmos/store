@@ -23,14 +23,25 @@ jobs:
             echo "catalog-${sequence} already exists; immutable releases cannot be replaced"
             exit 1
           fi
-          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 100 --json tagName --jq '.[].tagName' | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
+          if git ls-remote --exit-code origin "refs/tags/catalog-${sequence}" >/dev/null 2>&1; then
+            echo "catalog-${sequence} tag already exists; immutable tags cannot be replaced"
+            exit 1
+          fi
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --json tagName --jq '.[].tagName' | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
           STORE_LATEST_SEQUENCE="${latest:-0}" node scripts/check-release-sequence.mjs
+      - name: Pin reviewed catalog bytes
+        id: reviewed
+        run: echo "sha256=$(sha256sum catalog.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Sign catalog
         run: node scripts/sign-catalog.mjs
         env:
           STORE_SIGNING_KEY: ${{ secrets.STORE_SIGNING_KEY }}
       - name: Verify signed envelope
         run: node scripts/validate-catalog.mjs --strict-envelope
+      - name: Ensure reviewed bytes were signed
+        env:
+          REVIEWED_SHA256: ${{ steps.reviewed.outputs.sha256 }}
+        run: test "$(sha256sum catalog.json | cut -d' ' -f1)" = "$REVIEWED_SHA256"
       - name: Publish immutable release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -37,6 +37,24 @@ test("wrong public-key signature fails", () => {
 
 test("altered envelope bytes fail signature verification", () => {
   const value = structuredClone(envelope);
-  value.bytes = Buffer.from(JSON.stringify({ schema_version: 1, sequence: catalog.sequence })).toString("base64");
+  const altered = Buffer.from(value.bytes, "base64");
+  altered[altered.length - 1] = 0x20;
+  value.bytes = altered.toString("base64");
   assert.throws(() => validateCatalog(catalog, value), /signature does not verify/);
+});
+
+test("malformed URLs and compatibility ranges fail", () => {
+  const value = structuredClone(catalog);
+  value.listings[0].icon_url = "http://insecure.example/icon.png";
+  assert.throws(() => validateCatalog(value, envelope), /icon_url/);
+  const compatible = structuredClone(catalog);
+  compatible.listings.find((listing) => listing.id === "ark-markdown-bridge").data_compatibility[0].versions = "not-a-range";
+  assert.throws(() => validateCatalog(compatible, envelope), /compatibility/);
+});
+
+test("strict mode rejects stale reviewed bytes", () => {
+  assert.throws(() => validateCatalog(catalog, envelope, {
+    strictEnvelope: true,
+    catalogBytes: Buffer.from(JSON.stringify(catalog, null, 2) + "\n"),
+  }), /bytes do not match/);
 });
