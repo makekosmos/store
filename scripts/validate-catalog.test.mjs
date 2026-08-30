@@ -5,6 +5,7 @@ import { validateCatalog } from "./validate-catalog.mjs";
 
 const catalog = JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8"));
 const envelope = JSON.parse(await readFile(new URL("../catalog.envelope.json", import.meta.url), "utf8"));
+const packageIndexRelease = JSON.parse(await readFile(new URL("./fixtures/package-index-release.v1.json", import.meta.url), "utf8"));
 
 test("valid committed catalog and envelope", () => {
   assert.deepEqual(validateCatalog(catalog, envelope), { sequence: catalog.sequence, listings: catalog.listings.length });
@@ -57,4 +58,13 @@ test("strict mode rejects stale reviewed bytes", () => {
     strictEnvelope: true,
     catalogBytes: Buffer.from(JSON.stringify(catalog, null, 2) + "\n"),
   }), /bytes do not match/);
+});
+
+test("catalog versions match the package-index release anchor", () => {
+  assert.equal(catalog.sequence, packageIndexRelease.store_sequence);
+  for (const [packageId, version] of Object.entries(packageIndexRelease.packages)) {
+    const listing = catalog.listings.find((item) => item.id === packageId);
+    assert.ok(listing, `${packageId} is advertised by the package-index release`);
+    assert.equal(listing.distribution.version, version);
+  }
 });

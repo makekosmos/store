@@ -1,0 +1,8 @@
+{
+  "store_sequence": 13,
+  "packages": {
+    "com.kosmos.arcadia": "0.1.8",
+    "com.kosmos.agenda": "0.2.4",
+    "com.kosmos.memoria": "0.6.3"
+  }
+}

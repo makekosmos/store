@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 12,
-  "issued_at": "2026-08-27T00:00:00Z",
-  "expires_at": "2027-08-26T00:00:00Z",
+  "sequence": 13,
+  "issued_at": "2026-08-30T00:00:00Z",
+  "expires_at": "2027-08-29T00:00:00Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -29,9 +29,9 @@
       "categories": ["games", "library"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.arcadia", "version": "0.1.7" },
+      "distribution": { "package_id": "com.kosmos.arcadia", "version": "0.1.8" },
       "connects_to": null,
-      "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-1/arcadia-0.1.7.png",
+      "icon_url": "https://github.com/makekosmos/arcadia/releases/download/v0.1.8/icon.png",
       "screenshots": []
     },
     {
@@ -239,7 +239,7 @@
       "categories": ["productivity", "tasks"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.agenda", "version": "0.2.2" },
+      "distribution": { "package_id": "com.kosmos.agenda", "version": "0.2.4" },
       "connects_to": null,
       "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-2/agenda-0.2.2.png",
       "screenshots": []
@@ -254,7 +254,7 @@
       "categories": ["productivity", "notes"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.1" },
+      "distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.3" },
       "connects_to": null,
       "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-2/memoria-0.6.1.png",
       "screenshots": []
