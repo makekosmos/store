@@ -32,8 +32,7 @@ references/cycles, and the committed envelope signature without accessing
 `STORE_SIGNING_KEY`:
 
 ```powershell
-node scripts/validate-catalog.mjs
-node --test scripts/validate-catalog.test.mjs
+bun run check
 ```
 
 The dry-run path exercises ephemeral Ed25519 signing without publishing or
@@ -46,14 +45,12 @@ node scripts/dry-run.mjs
 The dry-run creates an in-memory ephemeral Ed25519 key, validates the complete
 catalog and envelope, and never writes a release or uses `STORE_SIGNING_KEY`.
 
-For a lightweight local pre-commit check, opt into the repository hook once:
-
-```powershell
-git config core.hooksPath .githooks
-```
-
-The hook only runs when catalog, workflow, or validation scripts are staged;
-CI remains authoritative.
+`bun install --frozen-lockfile` installs the repository hooks automatically.
+Pre-commit validates staged catalog, workflow, hook, documentation, and toolchain
+metadata changes; pre-push and CI run the aggregate `bun run check` contract.
+Store has no runtime or development dependencies, so Bun intentionally omits an
+empty lockfile and dependency audit is not applicable. Frozen install, signature,
+provenance, secret scan, and immutable-release gates remain required.
 
 After signing, publication operators require the envelope payload to match the
 catalog bytes with:
