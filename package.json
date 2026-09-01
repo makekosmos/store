@@ -1,0 +1,13 @@
+{
+  "name": "@makekosmos/store",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
+    "test": "node --test scripts/*.test.mjs",
+    "check:signature": "node scripts/validate-catalog.mjs --strict-envelope && bun run test && node scripts/dry-run.mjs && node --check scripts/sign-catalog.mjs && node --check scripts/check-release-sequence.mjs",
+    "check": "bun run check:signature"
+  }
+}
