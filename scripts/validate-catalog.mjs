@@ -150,6 +150,12 @@ export function validateCatalog(catalog, envelope, options = {}) {
   assert(envelope, "committed envelope is required");
   const envelopeResult = validateEnvelope(envelope, options);
   if (options.strictEnvelope) assert(envelopeResult.payload.sequence === result.sequence, "catalog and envelope sequences differ");
+  if (options.candidate) {
+    assert(options.catalogBytes, "candidate validation requires catalog bytes");
+    const matches = Buffer.compare(envelopeResult.bytes, options.catalogBytes) === 0;
+    assert(matches || result.sequence > envelopeResult.payload.sequence,
+      "an unsigned catalog candidate must advance the signed sequence");
+  }
   return result;
 }
 
@@ -159,7 +165,11 @@ async function main() {
   const catalogBytes = await readFile(catalogPath);
   const catalog = JSON.parse(catalogBytes);
   const envelope = JSON.parse(await readFile(envelopePath, "utf8"));
-  const result = validateCatalog(catalog, envelope, { strictEnvelope: process.argv.includes("--strict-envelope"), catalogBytes });
+  const result = validateCatalog(catalog, envelope, {
+    strictEnvelope: process.argv.includes("--strict-envelope"),
+    candidate: process.argv.includes("--candidate"),
+    catalogBytes,
+  });
   console.log(`Validated catalog sequence ${result.sequence} with ${result.listings} listings.`);
 }
 

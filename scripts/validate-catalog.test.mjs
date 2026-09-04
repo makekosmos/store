@@ -60,11 +60,38 @@ test("strict mode rejects stale reviewed bytes", () => {
   }), /bytes do not match/);
 });
 
-test("catalog versions match the package-index release anchor", () => {
+test("Store candidate reconciles versions with the published Package Index catalog", () => {
   assert.equal(catalog.sequence, packageIndexRelease.store_sequence);
   for (const [packageId, version] of Object.entries(packageIndexRelease.packages)) {
     const listing = catalog.listings.find((item) => item.id === packageId);
     assert.ok(listing, `${packageId} is advertised by the package-index release`);
     assert.equal(listing.distribution.version, version);
   }
+});
+
+test("candidate accepts a new sequence while preserving the historical signature", () => {
+  const bytes = Buffer.from(JSON.stringify(catalog));
+  assert.equal(validateCatalog(catalog, envelope, { candidate: true, catalogBytes: bytes }).sequence, 14);
+  assert.throws(() => validateCatalog(catalog, envelope, { strictEnvelope: true, catalogBytes: bytes }), /bytes do not match/);
+});
+
+test("candidate rejects same-sequence changes and rollback", () => {
+  const previous = JSON.parse(Buffer.from(envelope.bytes, "base64"));
+  for (const sequence of [previous.sequence, previous.sequence - 1]) {
+    const candidate = { ...catalog, sequence };
+    assert.throws(() => validateCatalog(candidate, envelope, {
+      candidate: true, catalogBytes: Buffer.from(JSON.stringify(candidate)),
+    }), /advance the signed sequence/);
+  }
+});
+
+test("candidate accepts exact already-signed bytes and still rejects signature tampering", () => {
+  const bytes = Buffer.from(envelope.bytes, "base64");
+  const previous = JSON.parse(bytes);
+  validateCatalog(previous, envelope, { candidate: true, catalogBytes: bytes });
+  const invalid = structuredClone(envelope);
+  invalid.signatures.signatures[0].signature = Buffer.alloc(64).toString("base64");
+  assert.throws(() => validateCatalog(catalog, invalid, {
+    candidate: true, catalogBytes: Buffer.from(JSON.stringify(catalog)),
+  }), /signature does not verify/);
 });

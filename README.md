@@ -59,6 +59,16 @@ catalog bytes with:
 node scripts/validate-catalog.mjs --strict-envelope
 ```
 
+Local `check:signature` uses `--candidate`: it verifies the historical envelope
+signature and permits changed source bytes only at a greater Store sequence.
+Exact already-signed bytes also pass. Production publication and the signing
+dry-run keep strict byte-equality validation.
+
+Store and Package Index have independent catalog sequences. Store catalog 14
+reconciles discovery with the already-published Package Index catalog 13;
+it does not rewrite that release or its BOM. The reconciliation fixture records
+both sequences and the downloaded Package Index catalog/BOM hashes.
+
 ## Key rotation
 
 Rotate the signing key as a coordinated change: add the new public key and
