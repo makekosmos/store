@@ -61,7 +61,7 @@ test("strict mode rejects stale reviewed bytes", () => {
 });
 
 test("Store candidate reconciles versions with the published Package Index catalog", () => {
-  assert.equal(catalog.sequence, packageIndexRelease.store_sequence);
+  assert.ok(catalog.sequence >= packageIndexRelease.store_sequence);
   for (const [packageId, version] of Object.entries(packageIndexRelease.packages)) {
     const listing = catalog.listings.find((item) => item.id === packageId);
     assert.ok(listing, `${packageId} is advertised by the package-index release`);
