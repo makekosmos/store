@@ -71,7 +71,7 @@ test("Store candidate reconciles versions with the published Package Index catal
 
 test("candidate accepts a new sequence while preserving the historical signature", () => {
   const bytes = Buffer.from(JSON.stringify(catalog));
-  assert.equal(validateCatalog(catalog, envelope, { candidate: true, catalogBytes: bytes }).sequence, 14);
+  assert.equal(validateCatalog(catalog, envelope, { candidate: true, catalogBytes: bytes }).sequence, catalog.sequence);
   assert.throws(() => validateCatalog(catalog, envelope, { strictEnvelope: true, catalogBytes: bytes }), /bytes do not match/);
 });
 
