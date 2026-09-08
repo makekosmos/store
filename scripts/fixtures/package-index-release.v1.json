@@ -1,12 +1,12 @@
 {
   "store_sequence": 16,
-  "package_index_sequence": 18,
-  "package_index_catalog_sha256": "1e65f56a3d5f6cb382619d4f8211a4dc5a6fdac019eb1c5592b99072a68c633f",
-  "package_index_release_bom_sha256": "7cb97e1c66d89aa615acb49b27f1cb88eb545597c843bd0e049cecf7019c44d7",
+  "package_index_sequence": 19,
+  "package_index_catalog_sha256": "fbfc5853e75ec0f2f45cdc4ef7790ebdc217cf658fb91c166bec5fd8b0baa265",
+  "package_index_release_bom_sha256": "7efa0ad17b5ff5b21abd05b83425a92a88af69fce6a455b6ed326b562e400ca9",
   "packages": {
     "com.kosmos.arcadia": "0.1.11",
     "com.kosmos.dictation": "0.2.5",
     "com.kosmos.agenda": "0.2.5",
-    "com.kosmos.memoria": "0.6.6"
+    "com.kosmos.memoria": "0.6.7"
   }
 }
