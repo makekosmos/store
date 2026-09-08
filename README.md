@@ -64,10 +64,11 @@ signature and permits changed source bytes only at a greater Store sequence.
 Exact already-signed bytes also pass. Production publication and the signing
 dry-run keep strict byte-equality validation.
 
-Store and Package Index have independent catalog sequences. Store catalog 15
-reconciles discovery with the already-published Package Index catalog 15;
-it does not rewrite that release or its BOM. The reconciliation fixture records
-both sequences and the downloaded Package Index catalog/BOM hashes.
+Store and Package Index have independent catalog sequences. Store catalog 17
+reconciled discovery with the already-published Package Index catalog 18; the
+catalog18 candidate tracks Package Index catalog19 and Memoria 0.6.7. Store
+publication does not rewrite the Package Index release or its BOM. The
+reconciliation fixture records the downloaded Package Index catalog/BOM hashes.
 
 ## Key rotation
 

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 17,
-  "issued_at": "2026-09-08T17:00:00Z",
-  "expires_at": "2027-09-08T17:00:00Z",
+  "sequence": 18,
+  "issued_at": "2026-09-08T18:30:00Z",
+  "expires_at": "2027-09-08T18:30:00Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -254,7 +254,7 @@
       "categories": ["productivity", "notes"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-"distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.6" },
+      "distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.7" },
       "connects_to": null,
       "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-2/memoria-0.6.1.png",
       "screenshots": []
