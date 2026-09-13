@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.3.14",
+  "packageManager": "pnpm@12.4.1",
   "scripts": {
     "prepare": "node scripts/install-hooks.mjs",
+    "check:toolchain": "node --version",
     "test": "node --test scripts/*.test.mjs",
-    "check:signature": "node scripts/validate-catalog.mjs --candidate && bun run test && node scripts/dry-run.mjs && node --check scripts/sign-catalog.mjs && node --check scripts/check-release-sequence.mjs",
-    "check": "bun run check:signature"
+    "check:signature": "node scripts/validate-catalog.mjs --candidate && node --test scripts/*.test.mjs && node scripts/dry-run.mjs && node --check scripts/sign-catalog.mjs && node --check scripts/check-release-sequence.mjs",
+    "check": "node scripts/validate-catalog.mjs --candidate && node --test scripts/*.test.mjs && node scripts/dry-run.mjs && node --check scripts/sign-catalog.mjs && node --check scripts/check-release-sequence.mjs"
   }
 }
