@@ -1,17 +1,9 @@
 name: Store quality
 
+# KOS-76: hosted CI is disabled. The `bun run check` gate runs locally via
+# .githooks; this workflow is manual dispatch only.
 on:
-  pull_request:
-    paths:
-      - "catalog.json"
-      - "catalog.envelope.json"
-      - "scripts/**"
-      - ".githooks/**"
-      - ".github/workflows/**"
-      - "README.md"
-      - "package.json"
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

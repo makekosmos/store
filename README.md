@@ -11,13 +11,14 @@ Production trust:
 - stable URL: `https://github.com/makekosmos/store/releases/latest/download/catalog.envelope.json`
 
 Edit `catalog.json`, increment `sequence`, then run the `Publish catalog`
-workflow. CI rejects an existing `catalog-N` release and requires the new
+workflow manually (`workflow_dispatch`; it never runs automatically). The
+workflow rejects an existing `catalog-N` release and requires the new
 sequence to be greater than every prior immutable catalog release before it
 uses the signing secret. Publication checks the release and tag before the key
 is loaded, then signs and verifies the exact reviewed catalog bytes. The private key exists only in the
 `STORE_SIGNING_KEY` repository secret. The checked-in
 `catalog.envelope.json` intentionally remains the previous signed envelope
-until that CI secret is available; do not generate a production signature
+until that signing secret is used; do not generate a production signature
 locally.
 
 Key rotation changes the `key_id`, public-key allowlist, and release
@@ -47,7 +48,10 @@ catalog and envelope, and never writes a release or uses `STORE_SIGNING_KEY`.
 
 `bun install --frozen-lockfile` installs the repository hooks automatically.
 Pre-commit validates staged catalog, workflow, hook, documentation, and toolchain
-metadata changes; pre-push and CI run the aggregate `bun run check` contract.
+metadata changes; pre-push runs the aggregate `bun run check` contract and is
+authoritative. Hosted GitHub Actions are disabled (KOS-76): the quality
+workflow no longer runs on `push` or `pull_request` and is manual
+`workflow_dispatch` only, so an absent or red hosted run is not a blocker.
 Store has no runtime or development dependencies, so Bun intentionally omits an
 empty lockfile and dependency audit is not applicable. Frozen install, signature,
 provenance, secret scan, and immutable-release gates remain required.
@@ -79,7 +83,8 @@ payload `{ "release_tag": "catalog-N" }` (Package Index can send it after
 publishing via
 `gh api repos/makekosmos/store/dispatches -f event_type=package-index-catalog-published
 -F client_payload[release_tag]=catalog-N` with a token that can write this
-repository) and on manual `workflow_dispatch`. The job downloads the published
+repository) and on manual `workflow_dispatch`; it never runs on a schedule or
+on `push`/`pull_request` (KOS-76). The job downloads the published
 catalog, envelope, signatures, and release BOM, verifies the index Ed25519
 signature against the BOM `signing_key_id`/`public_key`, syncs listing
 versions, scaffolds listings for newly published packages, advances the Store
