@@ -260,6 +260,38 @@ test("reconcile is idempotent once the candidate matches the index", async (t) =
   assert.equal(second.fixtureChanged, false);
 });
 
+test("reconcile reuses a prior candidate when only the validity window differs", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
+  const drifted = storeCatalog([packageListing("com.example.one", "1.0.0")], 5);
+  const store = await writeStore(t, drifted);
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5 };
+  await reconcileFiles({ ...options, issuedAt: new Date("2026-02-01T00:00:00Z") });
+  const first = await readFile(store.catalogPath, "utf8");
+  const baselinePath = path.join(store.dir, "prior-catalog.json");
+  await writeFile(baselinePath, first);
+  await writeFile(store.catalogPath, formatCatalog(drifted));
+  await reconcileFiles({ ...options, baselinePath, issuedAt: new Date("2026-03-01T00:00:00Z") });
+  assert.equal(await readFile(store.catalogPath, "utf8"), first);
+});
+
+test("a baseline with different semantic content is not reused", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const baselinePath = path.join(store.dir, "prior-catalog.json");
+  await writeFile(baselinePath, formatCatalog(storeCatalog([packageListing("com.example.one", "1.2.0")], 7)));
+  await reconcileFiles({
+    indexDir: dir,
+    catalogPath: store.catalogPath,
+    fixturePath: store.fixturePath,
+    baselinePath,
+    latestSequence: 5,
+    issuedAt: new Date("2026-03-01T00:00:00Z"),
+  });
+  const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  assert.equal(written.sequence, 6);
+  assert.equal(written.issued_at, "2026-03-01T00:00:00.000Z");
+});
+
 test("catalog formatting reproduces the committed catalog bytes", () => {
   assert.equal(formatCatalog(JSON.parse(realCatalogBytes.toString("utf8"))), realCatalogBytes.toString("utf8"));
 });

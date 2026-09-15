@@ -227,14 +227,30 @@ export function formatCatalog(document) {
   return `${formatCatalogDocument(document)}\n`;
 }
 
+function stripValidity(document) {
+  const { issued_at, expires_at, ...content } = document;
+  return content;
+}
+
 // Reconciles catalog.json and the fixture against a downloaded index release.
-// With check=true nothing is written and the result only reports drift.
-export async function reconcileFiles({ indexDir, catalogPath, fixturePath, sequence, latestSequence = 0, issuedAt, expiresAt, check = false }) {
+// With check=true nothing is written and the result only reports drift. When
+// baselinePath names a previous candidate that differs only in the validity
+// window, its bytes are reused verbatim so repeated reconciles of the same
+// index release stay byte-identical instead of restamping issued_at.
+export async function reconcileFiles({ indexDir, catalogPath, fixturePath, baselinePath, sequence, latestSequence = 0, issuedAt, expiresAt, check = false }) {
   const index = await loadIndexRelease(indexDir);
   const catalogBytes = await readFile(catalogPath);
   const catalog = JSON.parse(catalogBytes.toString("utf8"));
   const result = reconcileCatalog(catalog, index, { sequence, latestSequence, issuedAt, expiresAt });
-  const catalogText = result.catalog ? formatCatalog(result.catalog) : catalogBytes.toString("utf8");
+  let catalogText = result.catalog ? formatCatalog(result.catalog) : catalogBytes.toString("utf8");
+  if (result.catalog && baselinePath) {
+    const baselineText = await readFile(baselinePath, "utf8").catch(() => null);
+    if (baselineText !== null) {
+      try {
+        if (isDeepStrictEqual(stripValidity(result.catalog), stripValidity(JSON.parse(baselineText)))) catalogText = baselineText;
+      } catch { /* an unparseable baseline is ignored */ }
+    }
+  }
   const fixtureText = `${JSON.stringify(buildFixture(index), null, 2)}\n`;
   const existingFixture = await readFile(fixturePath, "utf8").catch(() => null);
   const catalogChanged = catalogText !== catalogBytes.toString("utf8");
@@ -291,6 +307,7 @@ async function main() {
     indexDir: args.indexDir,
     catalogPath: args.catalog ?? fileURLToPath(new URL("../catalog.json", import.meta.url)),
     fixturePath: args.fixture ?? fileURLToPath(new URL("./fixtures/package-index-release.v1.json", import.meta.url)),
+    baselinePath: args.baseline,
     sequence: optionalSequence(args.sequence, "--sequence"),
     latestSequence: optionalSequence(args.latestSequence, "--latest-sequence") ??
       optionalSequence(process.env.STORE_LATEST_SEQUENCE, "STORE_LATEST_SEQUENCE") ?? 0,
