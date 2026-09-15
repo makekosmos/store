@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "sequence": 18,
-  "issued_at": "2026-09-08T18:30:00Z",
-  "expires_at": "2027-09-08T18:30:00Z",
+  "sequence": 19,
+  "issued_at": "2026-09-15T14:58:10.661Z",
+  "expires_at": "2027-09-15T14:58:10.661Z",
   "listings": [
     {
       "id": "com.kosmos.shell",
@@ -239,7 +239,7 @@
       "categories": ["productivity", "tasks"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.agenda", "version": "0.2.5" },
+      "distribution": { "package_id": "com.kosmos.agenda", "version": "0.2.7" },
       "connects_to": null,
       "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-2/agenda-0.2.2.png",
       "screenshots": []
@@ -254,7 +254,7 @@
       "categories": ["productivity", "notes"],
       "availability": { "platforms": ["windows"] },
       "data_compatibility": [],
-      "distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.7" },
+      "distribution": { "package_id": "com.kosmos.memoria", "version": "0.6.8" },
       "connects_to": null,
       "icon_url": "https://github.com/makekosmos/store/releases/download/store-assets-2/memoria-0.6.1.png",
       "screenshots": []
@@ -304,6 +304,23 @@
         { "type": "com.kosmos.note", "versions": ">=1.0.0", "roles": ["import", "export"], "via": "external.obsidian", "fidelity": "lossy" }
       ],
       "distribution": { "official_url": "https://obsidian.md/download" },
+      "connects_to": null,
+      "icon_url": null,
+      "screenshots": []
+    },
+    {
+      "id": "com.kosmos.huawei-health",
+      "kind": "integration",
+      "name": "Huawei Health",
+      "publisher": "Kosmos",
+      "publisher_tier": "kosmos",
+      "description": "Imports Huawei Health archive data into ARK.",
+      "categories": ["integrations"],
+      "availability": { "platforms": ["windows"] },
+      "data_compatibility": [
+        { "type": "com.kosmos.huawei-health.archive", "versions": "*", "roles": ["import"], "via": "com.kosmos.huawei-health", "fidelity": "lossless" }
+      ],
+      "distribution": { "package_id": "com.kosmos.huawei-health", "version": "0.1.0" },
       "connects_to": null,
       "icon_url": null,
       "screenshots": []

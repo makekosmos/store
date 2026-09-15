@@ -64,11 +64,49 @@ signature and permits changed source bytes only at a greater Store sequence.
 Exact already-signed bytes also pass. Production publication and the signing
 dry-run keep strict byte-equality validation.
 
-Store and Package Index have independent catalog sequences. Store catalog 17
-reconciled discovery with the already-published Package Index catalog 18; the
-catalog18 candidate tracks Package Index catalog19 and Memoria 0.6.7. Store
-publication does not rewrite the Package Index release or its BOM. The
-reconciliation fixture records the downloaded Package Index catalog/BOM hashes.
+## Reconciliation with Package Index
+
+Store and Package Index keep independent, separately monotonic catalog
+sequences. Package Index is the source of truth for installable package
+versions; the Store catalog is the source of truth for discovery metadata
+(names, categories, icons, external apps, `connects_to`). Store publication
+never rewrites the Package Index release or its BOM.
+
+The `Reconcile with Package Index` workflow prepares a Store candidate whenever
+a new `catalog-N` release appears in `makekosmos/package-index`. It runs on a
+`repository_dispatch` event of type `package-index-catalog-published` with
+payload `{ "release_tag": "catalog-N" }` (Package Index can send it after
+publishing via
+`gh api repos/makekosmos/store/dispatches -f event_type=package-index-catalog-published
+-F client_payload[release_tag]=catalog-N` with a token that can write this
+repository) and on manual `workflow_dispatch`. The job downloads the published
+catalog, envelope, signatures, and release BOM, verifies the index Ed25519
+signature against the BOM `signing_key_id`/`public_key`, syncs listing
+versions, scaffolds listings for newly published packages, advances the Store
+sequence past every published `catalog-N` release, and opens a PR only after
+`bun run check` passes. A failed reconcile or verification leaves the job red
+and produces no PR, so Store publication stays blocked until the skew is
+resolved.
+
+Repeated reconciles of the same index release are byte-identical: the job
+fetches the existing `reconcile/index-catalog-N` branch, and a candidate that
+differs only in the `issued_at`/`expires_at` validity window reuses the open
+candidate's bytes instead of restamping them, so a redelivered dispatch does
+not churn the PR.
+
+To reconcile locally against a downloaded index release:
+
+```powershell
+gh release download catalog-N --repo makekosmos/package-index --dir out/index --clobber `
+  --pattern catalog.json --pattern catalog.envelope.json `
+  --pattern catalog.signatures.json --pattern release-bom.v1.json
+node scripts/reconcile-catalog.mjs --index-dir out/index
+```
+
+`--check` reports drift without writing and exits non-zero. The reconcile
+record lives in `scripts/fixtures/package-index-release.v1.json`: the
+reconciled index sequence, the SHA-256 of the downloaded index catalog and
+release BOM, and the per-package versions the Store listings must match.
 
 ## Key rotation
 
