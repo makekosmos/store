@@ -1,0 +1,109 @@
+name: Reconcile with Package Index
+
+on:
+  repository_dispatch:
+    types: [package-index-catalog-published]
+  workflow_dispatch:
+    inputs:
+      index_release:
+        description: Package Index catalog tag to reconcile with (default latest)
+        required: false
+        type: string
+  schedule:
+    - cron: "43 * * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: store-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Resolve Package Index release
+        id: index
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ github.event.client_payload.release_tag }}
+          DISPATCH_SEQUENCE: ${{ github.event.client_payload.sequence }}
+          INPUT_TAG: ${{ inputs.index_release }}
+        run: |
+          set -Eeuo pipefail
+          tag="${INPUT_TAG:-${DISPATCH_TAG:-}}"
+          if [[ -z "$tag" && -n "${DISPATCH_SEQUENCE:-}" ]]; then tag="catalog-${DISPATCH_SEQUENCE}"; fi
+          if [[ -z "$tag" ]]; then
+            tag="$(gh release list --repo makekosmos/package-index --limit 500 --json tagName --jq '.[].tagName' \
+              | sed -n 's/^catalog-\([0-9][0-9]*\)$/catalog-\1/p' | sort -t- -k2,2n | tail -1)"
+          fi
+          [[ "$tag" =~ ^catalog-[0-9]+$ ]] || { echo "cannot resolve a Package Index catalog release" >&2; exit 1; }
+          gh release view "$tag" --repo makekosmos/package-index >/dev/null
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download Package Index release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p out/index
+          gh release download "${{ steps.index.outputs.tag }}" --repo makekosmos/package-index \
+            --pattern catalog.json --pattern catalog.envelope.json \
+            --pattern catalog.signatures.json --pattern release-bom.v1.json \
+            --dir out/index --clobber
+
+      - name: Reconcile catalog with the published index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          bun install --frozen-lockfile
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --json tagName --jq '.[].tagName' \
+            | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
+          STORE_LATEST_SEQUENCE="${latest:-0}" node scripts/reconcile-catalog.mjs --index-dir out/index --json
+
+      - name: Verify reconciled candidate
+        run: bun run check
+
+      - name: Open or update the reconcile PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "$(git status --porcelain -- catalog.json scripts/fixtures/package-index-release.v1.json)" ]]; then
+            echo "Store catalog already reconciled with ${{ steps.index.outputs.tag }}; no PR needed."
+            exit 0
+          fi
+          branch="reconcile/index-${{ steps.index.outputs.tag }}"
+          sequence="$(node -p "require('./catalog.json').sequence")"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add catalog.json scripts/fixtures/package-index-release.v1.json
+          git commit -m "chore: reconcile Store catalog ${sequence} with Package Index ${{ steps.index.outputs.tag }}"
+          git push --force-with-lease origin "$branch"
+          body="$(cat <<EOF
+          Automated reconcile for Package Index ${{ steps.index.outputs.tag }}.
+
+          - Verified the published index catalog Ed25519 signature against the release BOM key.
+          - Synced listing versions and scaffolded listings for newly published packages.
+          - Store sequence ${sequence} passes \`bun run check\` and stays above every published catalog-N release.
+
+          Review scaffolded listing metadata before merge. Signing and publishing still run through the manual Publish catalog workflow; immutable catalog-N releases are never rewritten.
+          EOF
+          )"
+          existing="$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --repo "${GITHUB_REPOSITORY}" --body "$body"
+          else
+            gh pr create --repo "${GITHUB_REPOSITORY}" --base main --head "$branch" \
+              --title "chore: reconcile Store catalog with Package Index ${{ steps.index.outputs.tag }}" \
+              --body "$body"
+          fi

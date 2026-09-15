@@ -9,15 +9,15 @@ export const PRODUCTION_PUBLIC_KEY = "it14mzPjoqdgaHXdCDIjCoUgGXf/f5izJrGRUuk3o/
 // Keep historical keys here during rotation so already-published envelopes stay verifiable.
 export const TRUSTED_PUBLIC_KEYS = Object.freeze({ [PRODUCTION_KEY_ID]: PRODUCTION_PUBLIC_KEY });
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
-const ID = /^[a-z0-9][a-z0-9._-]{1,127}$/;
-const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+export const ID = /^[a-z0-9][a-z0-9._-]{1,127}$/;
+export const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const RANGE_TOKEN = /^(?:\*|(?:[<>=]{1,2}\s*)?[vV]?\d+(?:\.\d+|\.x|\.X)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|[~^]\s*(?:[vV]?\d+(?:\.\d+|\.x|\.X)*))$/;
 const HTTPS_URL = /^https:\/\/[^\s]+$/i;
 const KINDS = new Set(["kosmos-package", "external-app", "integration"]);
 const TIERS = new Set(["kosmos", "verified", "community"]);
-const PLATFORMS = new Set(["windows", "macos", "linux", "ios", "android", "web"]);
-const ROLES = new Set(["import", "export", "sync"]);
-const FIDELITIES = new Set(["lossless", "lossy"]);
+export const PLATFORMS = new Set(["windows", "macos", "linux", "ios", "android", "web"]);
+export const ROLES = new Set(["import", "export", "sync"]);
+export const FIDELITIES = new Set(["lossless", "lossy"]);
 
 function isHttpsUrl(value) {
   if (typeof value !== "string" || !HTTPS_URL.test(value)) return false;
@@ -37,7 +37,7 @@ function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function decodeBase64(value, label) {
+export function decodeBase64(value, label) {
   assert(typeof value === "string" && value.length > 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length % 4 === 0, `${label} must be base64`);
   const decoded = Buffer.from(value, "base64");
   assert(decoded.toString("base64") === value, `${label} must be canonical base64`);
@@ -118,7 +118,7 @@ export function validateCatalogDocument(catalog) {
   return { sequence: catalog.sequence, listings: catalog.listings.length };
 }
 
-function publicKeyFromRaw(raw) {
+export function publicKeyFromRaw(raw) {
   const bytes = decodeBase64(raw, "public key");
   assert(bytes.length === 32, "Ed25519 public key must be 32 bytes");
   return createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, bytes]), format: "der", type: "spki" });

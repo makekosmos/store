@@ -5,6 +5,6 @@ changed="$(git diff --cached --name-only --diff-filter=ACMR)"
 case "$changed" in
   *catalog.json*|*catalog.envelope.json*|*scripts/*|*.github/workflows/*|*.githooks/*|*README.md*|*package.json*)
     node scripts/validate-catalog.mjs
-    node --test scripts/validate-catalog.test.mjs scripts/check-release-sequence.test.mjs
+    node --test scripts/validate-catalog.test.mjs scripts/check-release-sequence.test.mjs scripts/reconcile-catalog.test.mjs
     ;;
 esac

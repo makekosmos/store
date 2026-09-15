@@ -1,2 +1,3 @@
 catalog.json text eol=lf
 catalog.envelope.json text eol=lf
+scripts/fixtures/*.json text eol=lf

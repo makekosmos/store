@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export function checkReleaseSequence(current, latest = 0, { tagExists = false } = {}) {
   if (!Number.isSafeInteger(current) || current < 1) throw new Error("catalog sequence must be a positive integer");
@@ -17,7 +19,11 @@ function parseSequence(value, label, fallback = 0) {
   return parsed;
 }
 
-const current = Number(JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8")).sequence);
-const latest = parseSequence(process.env.STORE_LATEST_SEQUENCE, "latest release sequence");
-checkReleaseSequence(current, latest, { tagExists: process.env.STORE_TAG_EXISTS === "true" });
-console.log(`Catalog sequence ${current} is monotonic after ${latest || "no prior release"}.`);
+async function main() {
+  const current = Number(JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8")).sequence);
+  const latest = parseSequence(process.env.STORE_LATEST_SEQUENCE, "latest release sequence");
+  checkReleaseSequence(current, latest, { tagExists: process.env.STORE_TAG_EXISTS === "true" });
+  console.log(`Catalog sequence ${current} is monotonic after ${latest || "no prior release"}.`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
