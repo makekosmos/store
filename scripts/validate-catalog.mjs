@@ -10,8 +10,11 @@ export const PRODUCTION_PUBLIC_KEY = "it14mzPjoqdgaHXdCDIjCoUgGXf/f5izJrGRUuk3o/
 export const TRUSTED_PUBLIC_KEYS = Object.freeze({ [PRODUCTION_KEY_ID]: PRODUCTION_PUBLIC_KEY });
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 export const ID = /^[a-z0-9][a-z0-9._-]{1,127}$/;
-export const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-const RANGE_TOKEN = /^(?:\*|(?:[<>=]{1,2}\s*)?[vV]?\d+(?:\.\d+|\.x|\.X)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|[~^]\s*(?:[vV]?\d+(?:\.\d+|\.x|\.X)*))$/;
+export const SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+const RANGE_IDENTIFIER = "(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)";
+const RANGE_QUALIFIER = `(?:-${RANGE_IDENTIFIER}(?:\\.${RANGE_IDENTIFIER})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?`;
+const RANGE_PARTIAL = `[vV]?(?:\\d+|[xX*])(?:\\.(?:\\d+|[xX*])(?:\\.(?:\\d+|[xX*])${RANGE_QUALIFIER})?)?`;
+const RANGE_TOKEN = new RegExp(`^(?:(?:[<>]=?|=|~>?|\\^)\\s*)?${RANGE_PARTIAL}$`);
 const HTTPS_URL = /^https:\/\/[^\s]+$/i;
 const KINDS = new Set(["kosmos-package", "external-app", "integration"]);
 const TIERS = new Set(["kosmos", "verified", "community"]);
@@ -54,7 +57,8 @@ function validTimestamp(value) {
 
 function validCompatibilityRange(value) {
   if (typeof value !== "string" || value.length > 128 || value.trim() !== value || value.includes("||")) return false;
-  return value.split(/\s+/).every((token) => RANGE_TOKEN.test(token));
+  const collapsed = value.replace(/([<>=~^]{1,2})\s+(?=[vV0-9xX*])/g, "$1");
+  return collapsed.split(/\s+/).every((token) => RANGE_TOKEN.test(token));
 }
 
 export function validateCatalogDocument(catalog) {
@@ -89,7 +93,10 @@ export function validateCatalogDocument(catalog) {
       packageIds.add(listing.distribution.package_id);
     }
     assert(listing.connects_to === null || (typeof listing.connects_to === "string" && listing.connects_to !== listing.id && ID.test(listing.connects_to)), `${listing.id}: connects_to must be a listing id or null`);
-    if (listing.distribution.connects_to !== undefined) assert(listing.distribution.connects_to === listing.connects_to, `${listing.id}: distribution connects_to does not match listing`);
+    const connectsToMirrored = listing.connects_to === null
+      ? listing.distribution.connects_to === undefined
+      : listing.distribution.connects_to === listing.connects_to;
+    assert(connectsToMirrored, `${listing.id}: distribution connects_to does not match listing`);
     assert(Array.isArray(listing.data_compatibility ?? []), `${listing.id}: data_compatibility must be an array`);
     for (const item of listing.data_compatibility ?? []) {
       assert(isObject(item) && typeof item.type === "string" && ID.test(item.type) && validCompatibilityRange(item.versions), `${listing.id}: malformed data compatibility`);

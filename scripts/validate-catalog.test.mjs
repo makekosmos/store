@@ -53,6 +53,33 @@ test("malformed URLs and compatibility ranges fail", () => {
   assert.throws(() => validateCatalog(compatible, envelope), /compatibility/);
 });
 
+test("distribution versions follow the semver 2.0.0 grammar", () => {
+  for (const version of ["1.0.0-alpha..1", "1.0.0-.", "1.0.0+meta..x", "01.2.3", "1.0.0-01", "1.0.0+..", "1.2"]) {
+    const value = structuredClone(catalog);
+    value.listings[0].distribution.version = version;
+    assert.throws(() => validateCatalog(value, envelope), /semver/, version);
+  }
+  for (const version of ["1.2.3", "1.2.3-rc.1", "1.2.3+build.5", "1.2.3-rc.1+build.5"]) {
+    const value = structuredClone(catalog);
+    value.listings[0].distribution.version = version;
+    validateCatalog(value, envelope);
+  }
+});
+
+test("compatibility ranges follow the comparator grammar", () => {
+  const listing = (value) => value.listings.find((item) => item.id === "ark-markdown-bridge").data_compatibility[0];
+  for (const versions of ["=>1.0.0", "<>1.0.0", "==1.0.0", "1.2.x.3", "1.2.3.4.5", "v1.2.3junk", "1.0.0 - 2.0.0", "1.0.0 || 2.0.0"]) {
+    const value = structuredClone(catalog);
+    listing(value).versions = versions;
+    assert.throws(() => validateCatalog(value, envelope), /compatibility/, versions);
+  }
+  for (const versions of ["*", "x", ">=1.0.0", ">= 1.0.0", "=1.2.3", "~1.2", "~>1.0.0", "^1.0.0", "~1.0.0-rc.1", "^2.0.0-beta.2", ">=1.0.0 <2.0.0", "1.2.x"]) {
+    const value = structuredClone(catalog);
+    listing(value).versions = versions;
+    validateCatalog(value, envelope);
+  }
+});
+
 test("dangling compatibility via references fail", () => {
   const value = structuredClone(catalog);
   value.listings.find((listing) => listing.id === "ark-markdown-bridge").data_compatibility[0].via = "ghost.app";
@@ -64,6 +91,17 @@ test("connects_to self-references fail", () => {
   value.listings[0].connects_to = value.listings[0].id;
   value.listings[0].distribution.connects_to = value.listings[0].id;
   assert.throws(() => validateCatalog(value, envelope), /connects_to/);
+});
+
+test("connects_to must be mirrored in distribution.connects_to", () => {
+  const value = structuredClone(catalog);
+  const listing = value.listings.find((item) => item.id === "com.kosmos.bigfrontend");
+  delete listing.distribution.connects_to;
+  assert.throws(() => validateCatalog(value, envelope), /connects_to/);
+  const mirrored = structuredClone(catalog);
+  const unconnected = mirrored.listings.find((item) => item.id === "com.kosmos.huawei-health");
+  unconnected.distribution.connects_to = "external.obsidian";
+  assert.throws(() => validateCatalog(mirrored, envelope), /connects_to/);
 });
 
 test("external apps cannot declare a package distribution", () => {
