@@ -148,7 +148,7 @@ export function validateEnvelope(envelope, { publicKey, catalogBytes, strictEnve
   const signatures = envelope.signatures;
   assert(isObject(signatures) && signatures.schema_version === 1 && Array.isArray(signatures.signatures) && signatures.signatures.length > 0, "invalid signature records");
   for (const record of signatures.signatures) {
-    assert(isObject(record) && typeof record.key_id === "string" && TRUSTED_PUBLIC_KEYS[record.key_id] && record.algorithm === "ed25519", "invalid signature record");
+    assert(isObject(record) && typeof record.key_id === "string" && Object.hasOwn(TRUSTED_PUBLIC_KEYS, record.key_id) && record.algorithm === "ed25519", "invalid signature record");
     const signature = decodeBase64(record.signature, "signature");
     const key = publicKeyFromRaw(publicKey ?? TRUSTED_PUBLIC_KEYS[record.key_id]);
     assert(signature.length === 64 && verify(null, envelopeBytes, key, signature), "committed envelope signature does not verify");
@@ -158,6 +158,7 @@ export function validateEnvelope(envelope, { publicKey, catalogBytes, strictEnve
 
 export function validateCatalog(catalog, envelope, options = {}) {
   const result = validateCatalogDocument(catalog);
+  assert(Date.parse(catalog.issued_at) <= Date.now(), "catalog validity window has not begun");
   assert(Date.parse(catalog.expires_at) > Date.now(), "catalog validity window has elapsed");
   assert(envelope, "committed envelope is required");
   const envelopeResult = validateEnvelope(envelope, options);

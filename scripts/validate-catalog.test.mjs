@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { validateCatalog } from "./validate-catalog.mjs";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { validateCatalog, validateEnvelope } from "./validate-catalog.mjs";
 
 const catalog = JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8"));
 const envelope = JSON.parse(await readFile(new URL("../catalog.envelope.json", import.meta.url), "utf8"));
@@ -176,6 +177,40 @@ test("an expired catalog is rejected in candidate and plain modes", () => {
   assert.throws(() => validateCatalog(expired, envelope, {
     candidate: true, catalogBytes: Buffer.from(JSON.stringify(expired)),
   }), /validity window has elapsed/);
+});
+
+test("a not-yet-issued catalog is rejected in candidate and plain modes", () => {
+  const future = structuredClone(catalog);
+  future.issued_at = "2030-01-01T00:00:00Z";
+  future.expires_at = "2030-07-01T00:00:00Z";
+  assert.throws(() => validateCatalog(future, envelope), /validity window has not begun/);
+  future.sequence = catalog.sequence + 1;
+  assert.throws(() => validateCatalog(future, envelope, {
+    candidate: true, catalogBytes: Buffer.from(JSON.stringify(future)),
+  }), /validity window has not begun/);
+});
+
+test("a signature override key cannot bypass the trusted key_id allowlist", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const raw = publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64");
+  const bytes = Buffer.from(JSON.stringify(catalog));
+  const signature = sign(null, bytes, privateKey).toString("base64");
+  // Prototype members resolved truthy before the fix, so a signature record
+  // claiming key_id "__proto__" (or any Object.prototype property) passed the
+  // allowlist and verified under the override key. Only own allowlist entries
+  // may claim trust.
+  for (const key_id of ["__proto__", "constructor", "toString", "hasOwnProperty", "unknown-key"]) {
+    const value = {
+      bytes: bytes.toString("base64"),
+      signatures: { schema_version: 1, signatures: [{ key_id, algorithm: "ed25519", signature }] },
+    };
+    assert.throws(() => validateEnvelope(value, { publicKey: raw }), /invalid signature record/, key_id);
+  }
+  const value = {
+    bytes: bytes.toString("base64"),
+    signatures: { schema_version: 1, signatures: [{ key_id: "kosmos-store-2026", algorithm: "ed25519", signature }] },
+  };
+  validateEnvelope(value, { publicKey: raw });
 });
 
 test("CLI rejects unrecognized flags instead of silently weakening the gate", () => {

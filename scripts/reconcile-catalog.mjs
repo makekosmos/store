@@ -106,7 +106,13 @@ export async function loadIndexRelease(dir) {
 
 function scaffoldListing(manifest, indexSequence) {
   const platforms = [...new Set((Array.isArray(manifest.targets) ? manifest.targets : [])
-    .flatMap((target) => (isObject(target) && Array.isArray(target.os) ? target.os : []))
+    .flatMap((target) => {
+      if (!isObject(target) || (target.os !== undefined &&
+          (!Array.isArray(target.os) || target.os.some((os) => typeof os !== "string")))) {
+        fail(`${manifest.id}: manifest targets cannot be reconciled into a Store listing`);
+      }
+      return target.os ?? [];
+    })
     .filter((platform) => PLATFORMS.has(platform)))];
   if (platforms.length === 0) fail(`${manifest.id}: cannot derive supported platforms for a new listing`);
   if (typeof manifest.name !== "string" || !manifest.name.trim()) fail(`${manifest.id}: manifest name is required for a new listing`);
@@ -339,9 +345,10 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
       try {
         const baseline = JSON.parse(baselineText);
         validateCatalogDocument(baseline);
-        // Reusing bytes with a lapsed or malformed validity window would emit a
-        // candidate that is dead on arrival; stamp a fresh window instead.
-        if (Date.parse(baseline.expires_at) > Date.now() &&
+        // Reusing bytes whose validity window has lapsed or has not yet begun
+        // would emit a candidate that is dead on arrival; stamp a fresh window.
+        if (Date.parse(baseline.issued_at) <= Date.now() &&
+            Date.parse(baseline.expires_at) > Date.now() &&
             isDeepStrictEqual(stripValidity(result.catalog), stripValidity(baseline))) {
           catalogText = baselineText;
         }
