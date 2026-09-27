@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
-  buildFixture, compareSemver, formatCatalog, loadIndexRelease, reconcileCatalog, reconcileFiles,
+  buildFixture, compareSemver, formatCatalog, loadIndexRelease, parseArgs, reconcileCatalog, reconcileFiles,
 } from "./reconcile-catalog.mjs";
 import { validateCatalogDocument } from "./validate-catalog.mjs";
 
@@ -425,4 +425,40 @@ test("fixture records the verified index release hashes", async (t) => {
   const { createHash } = await import("node:crypto");
   assert.equal(fixture.package_index_catalog_sha256, createHash("sha256").update(catalogBytes).digest("hex"));
   assert.equal(fixture.package_index_sequence, 30);
+});
+
+test("index release rejects a package that is both published and retired", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { retired: ["com.example.one"] });
+  await assert.rejects(() => loadIndexRelease(dir), /published and retired/);
+  const { dir: empty } = await writeIndexRelease(t, [indexPackage("com.example.two", "1.0.0")], { retired: [""] });
+  await assert.rejects(() => loadIndexRelease(empty), /retired_package_ids is invalid/);
+});
+
+test("reconcile fails closed on a non-positive fixture package index sequence", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  // Index catalog sequences start at 1, so a recorded sequence of 0 or less can
+  // never come from a real reconcile; accepting it would silently disable both
+  // the stale-release and regenerated-release guards, so it must fail closed.
+  const { dir: stale } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.4.0")], { sequence: 29 });
+  for (const bad of [0, -3]) {
+    await writeFile(store.fixturePath, `${JSON.stringify({ package_index_sequence: bad })}\n`);
+    await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /package_index_sequence is malformed/);
+    await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale, check: true }), /package_index_sequence is malformed/);
+  }
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).listings[0].distribution.version, "1.2.0");
+});
+
+test("reconcile arguments reject unknown options and inline values", () => {
+  assert.throws(() => parseArgs(["--check=false", "x"]), /unrecognized argument/);
+  assert.throws(() => parseArgs(["--bogus", "x"]), /unrecognized argument/);
+  assert.throws(() => parseArgs(["--index-dir=/tmp"]), /unrecognized argument/);
+  assert.throws(() => parseArgs(["--index-dir"]), /missing value/);
+  assert.throws(() => parseArgs(["--index-dir", "--check"]), /missing value/);
+  assert.deepEqual(
+    parseArgs(["--index-dir", "out/index", "--check", "--json", "--latest-sequence", "19"]),
+    { check: true, json: true, indexDir: "out/index", latestSequence: "19" },
+  );
 });

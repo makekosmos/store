@@ -170,15 +170,19 @@ export function validateCatalog(catalog, envelope, options = {}) {
   return result;
 }
 
+const KNOWN_FLAGS = new Set(["--candidate", "--strict-envelope"]);
+
 async function main() {
+  const argv = process.argv.slice(2);
+  for (const arg of argv) assert(KNOWN_FLAGS.has(arg), `unrecognized argument ${arg}`);
   const catalogPath = new URL("../catalog.json", import.meta.url);
   const envelopePath = new URL("../catalog.envelope.json", import.meta.url);
   const catalogBytes = await readFile(catalogPath);
   const catalog = JSON.parse(catalogBytes);
   const envelope = JSON.parse(await readFile(envelopePath, "utf8"));
   const result = validateCatalog(catalog, envelope, {
-    strictEnvelope: process.argv.includes("--strict-envelope"),
-    candidate: process.argv.includes("--candidate"),
+    strictEnvelope: argv.includes("--strict-envelope"),
+    candidate: argv.includes("--candidate"),
     catalogBytes,
   });
   console.log(`Validated catalog sequence ${result.sequence} with ${result.listings} listings.`);
