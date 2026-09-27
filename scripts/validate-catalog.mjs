@@ -82,12 +82,13 @@ export function validateCatalogDocument(catalog) {
     assert(isObject(listing.distribution), `${listing.id}: distribution is required`);
     if (listing.kind === "external-app") {
       assert(isHttpsUrl(listing.distribution.official_url), `${listing.id}: external app official_url is required`);
+      assert(listing.distribution.package_id === undefined, `${listing.id}: external app must not declare a package_id`);
     } else {
       assert(typeof listing.distribution.package_id === "string" && ID.test(listing.distribution.package_id) && SEMVER.test(listing.distribution.version), `${listing.id}: package distribution requires package_id and semver version`);
       assert(!packageIds.has(listing.distribution.package_id), `duplicate package identity: ${listing.distribution.package_id}`);
       packageIds.add(listing.distribution.package_id);
     }
-    assert(listing.connects_to === null || (typeof listing.connects_to === "string" && ID.test(listing.connects_to)), `${listing.id}: connects_to must be a listing id or null`);
+    assert(listing.connects_to === null || (typeof listing.connects_to === "string" && listing.connects_to !== listing.id && ID.test(listing.connects_to)), `${listing.id}: connects_to must be a listing id or null`);
     if (listing.distribution.connects_to !== undefined) assert(listing.distribution.connects_to === listing.connects_to, `${listing.id}: distribution connects_to does not match listing`);
     assert(Array.isArray(listing.data_compatibility ?? []), `${listing.id}: data_compatibility must be an array`);
     for (const item of listing.data_compatibility ?? []) {
@@ -104,6 +105,9 @@ export function validateCatalogDocument(catalog) {
   const byId = new Map(catalog.listings.map((listing) => [listing.id, listing]));
   for (const listing of catalog.listings) {
     if (listing.connects_to !== null) assert(byId.has(listing.connects_to), `${listing.id}: connects_to must reference an existing listing`);
+    for (const item of listing.data_compatibility ?? []) {
+      assert(byId.has(item.via), `${listing.id}: compatibility via must reference an existing listing`);
+    }
     if (listing.replacement_id !== undefined) {
       assert(byId.has(listing.replacement_id), `${listing.id}: replacement_id must reference an existing listing`);
       const seen = new Set([listing.id]);
