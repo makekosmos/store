@@ -83,11 +83,11 @@ publishing via
 repository) and on manual `workflow_dispatch`. The job downloads the published
 catalog, envelope, signatures, and release BOM, verifies the index Ed25519
 signature against the BOM `signing_key_id`/`public_key`, syncs listing
-versions, scaffolds listings for newly published packages, advances the Store
-sequence past every published `catalog-N` release, and opens a PR only after
-`bun run check` passes. A failed reconcile or verification leaves the job red
-and produces no PR, so Store publication stays blocked until the skew is
-resolved.
+versions without ever downgrading a pinned version, scaffolds listings for
+newly published packages, advances the Store sequence past every published
+`catalog-N` release, and opens a PR only after `bun run check` passes. A
+failed reconcile or verification leaves the job red and produces no PR, so
+Store publication stays blocked until the skew is resolved.
 
 Repeated reconciles of the same index release are byte-identical: the job
 fetches the existing `reconcile/index-catalog-N` branch, and a candidate that
