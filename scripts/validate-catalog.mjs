@@ -89,7 +89,10 @@ export function validateCatalogDocument(catalog) {
       packageIds.add(listing.distribution.package_id);
     }
     assert(listing.connects_to === null || (typeof listing.connects_to === "string" && listing.connects_to !== listing.id && ID.test(listing.connects_to)), `${listing.id}: connects_to must be a listing id or null`);
-    if (listing.distribution.connects_to !== undefined) assert(listing.distribution.connects_to === listing.connects_to, `${listing.id}: distribution connects_to does not match listing`);
+    const connectsToMirrored = listing.connects_to === null
+      ? listing.distribution.connects_to === undefined
+      : listing.distribution.connects_to === listing.connects_to;
+    assert(connectsToMirrored, `${listing.id}: distribution connects_to does not match listing`);
     assert(Array.isArray(listing.data_compatibility ?? []), `${listing.id}: data_compatibility must be an array`);
     for (const item of listing.data_compatibility ?? []) {
       assert(isObject(item) && typeof item.type === "string" && ID.test(item.type) && validCompatibilityRange(item.versions), `${listing.id}: malformed data compatibility`);

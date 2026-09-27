@@ -66,6 +66,17 @@ test("connects_to self-references fail", () => {
   assert.throws(() => validateCatalog(value, envelope), /connects_to/);
 });
 
+test("connects_to must be mirrored in distribution.connects_to", () => {
+  const value = structuredClone(catalog);
+  const listing = value.listings.find((item) => item.id === "com.kosmos.bigfrontend");
+  delete listing.distribution.connects_to;
+  assert.throws(() => validateCatalog(value, envelope), /connects_to/);
+  const mirrored = structuredClone(catalog);
+  const unconnected = mirrored.listings.find((item) => item.id === "com.kosmos.huawei-health");
+  unconnected.distribution.connects_to = "external.obsidian";
+  assert.throws(() => validateCatalog(mirrored, envelope), /connects_to/);
+});
+
 test("external apps cannot declare a package distribution", () => {
   const value = structuredClone(catalog);
   const external = value.listings.find((listing) => listing.kind === "external-app");
