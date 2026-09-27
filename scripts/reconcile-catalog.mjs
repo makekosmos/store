@@ -137,6 +137,47 @@ function scaffoldListing(manifest, indexSequence) {
   };
 }
 
+// Versions are SEMVER-shaped; precedence follows semver 2.0.0: numeric core
+// triple, then prerelease identifiers where a release outranks its own
+// prereleases and numeric identifiers rank below alphanumeric ones. Build
+// metadata does not affect precedence.
+export function compareSemver(a, b) {
+  const parse = (version) => {
+    const withoutBuild = version.split("+", 1)[0];
+    const dash = withoutBuild.indexOf("-");
+    return {
+      core: (dash === -1 ? withoutBuild : withoutBuild.slice(0, dash)).split(".").map(Number),
+      prerelease: dash === -1 ? null : withoutBuild.slice(dash + 1).split("."),
+    };
+  };
+  const left = parse(a);
+  const right = parse(b);
+  for (let index = 0; index < 3; index += 1) {
+    if (left.core[index] !== right.core[index]) return left.core[index] - right.core[index];
+  }
+  if (left.prerelease === null || right.prerelease === null) {
+    if (left.prerelease === right.prerelease) return 0;
+    return left.prerelease === null ? 1 : -1;
+  }
+  for (let index = 0; index < Math.max(left.prerelease.length, right.prerelease.length); index += 1) {
+    const leftPart = left.prerelease[index];
+    const rightPart = right.prerelease[index];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) {
+      const diff = Number(leftPart) - Number(rightPart);
+      if (diff !== 0) return diff;
+    } else if (leftNumeric !== rightNumeric) {
+      return leftNumeric ? -1 : 1;
+    } else if (leftPart !== rightPart) {
+      return leftPart < rightPart ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
 // Aligns a Store catalog document with a verified index release: package
 // listings track index versions, newly published packages get scaffolded
 // listings, and a changed catalog advances the sequence past the latest
@@ -161,6 +202,9 @@ export function reconcileCatalog(catalog, index, options = {}) {
       fail(`${listing.id}: ${packageId} is absent from Package Index catalog ${index.sequence}`);
     }
     if (listing.distribution.version !== entry.version) {
+      if (compareSemver(entry.version, listing.distribution.version) < 0) {
+        fail(`${listing.id}: Package Index catalog ${index.sequence} pins ${packageId} at ${entry.version}, below the advertised ${listing.distribution.version}; refusing to downgrade a Store listing`);
+      }
       updated.push({ id: listing.id, package_id: packageId, from: listing.distribution.version, to: entry.version });
       listing.distribution.version = entry.version;
     }
@@ -233,22 +277,32 @@ function stripValidity(document) {
 }
 
 // The fixture records the last reconciled Package Index release: its sequence
-// and the SHA-256 of the verified index catalog bytes. Reconciling an older
-// index release would rewind pinned versions and the recorded index sequence,
-// and an equal sequence with different bytes means the published release was
-// regenerated — both fail closed. A byte-identical replay of the last
-// reconciled release, or any newer index sequence, proceeds.
+// and the SHA-256 of the verified index catalog and release BOM bytes.
+// Reconciling an older index release would rewind pinned versions and the
+// recorded index sequence, and an equal sequence whose catalog or release-BOM
+// bytes differ means the published release was regenerated — all fail closed.
+// A byte-identical replay of the last reconciled release, or any newer index
+// sequence, proceeds. An existing but corrupt fixture also fails closed rather
+// than silently disabling the guard; only a missing file or an empty
+// bootstrap record skips the check.
 function assertIndexReleaseProgress(index, fixtureText) {
   if (fixtureText === null) return;
   let fixture;
-  try { fixture = JSON.parse(fixtureText); } catch { return; }
-  if (!isObject(fixture) || !Number.isSafeInteger(fixture.package_index_sequence)) return;
+  try { fixture = JSON.parse(fixtureText); } catch { fail("reconcile fixture is not valid JSON"); }
+  if (!isObject(fixture)) fail("reconcile fixture is malformed");
+  if (fixture.package_index_sequence === undefined) return;
+  if (!Number.isSafeInteger(fixture.package_index_sequence)) fail("reconcile fixture package_index_sequence is malformed");
   const lastSequence = fixture.package_index_sequence;
   if (index.sequence < lastSequence) {
     fail(`index catalog ${index.sequence} is older than last reconciled index catalog ${lastSequence}; refusing to downgrade Store listings`);
   }
-  if (index.sequence === lastSequence && fixture.package_index_catalog_sha256 !== index.catalogSha256) {
-    fail(`index catalog ${index.sequence} bytes do not match the last reconciled release; refusing to reconcile a regenerated index release`);
+  if (index.sequence === lastSequence) {
+    if (fixture.package_index_catalog_sha256 !== index.catalogSha256) {
+      fail(`index catalog ${index.sequence} bytes do not match the last reconciled release; refusing to reconcile a regenerated index release`);
+    }
+    if (fixture.package_index_release_bom_sha256 !== index.bomSha256) {
+      fail(`index release BOM at catalog ${index.sequence} does not match the last reconciled release; refusing to reconcile a regenerated index release`);
+    }
   }
 }
 

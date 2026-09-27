@@ -53,6 +53,26 @@ test("malformed URLs and compatibility ranges fail", () => {
   assert.throws(() => validateCatalog(compatible, envelope), /compatibility/);
 });
 
+test("dangling compatibility via references fail", () => {
+  const value = structuredClone(catalog);
+  value.listings.find((listing) => listing.id === "ark-markdown-bridge").data_compatibility[0].via = "ghost.app";
+  assert.throws(() => validateCatalog(value, envelope), /via must reference an existing listing/);
+});
+
+test("connects_to self-references fail", () => {
+  const value = structuredClone(catalog);
+  value.listings[0].connects_to = value.listings[0].id;
+  value.listings[0].distribution.connects_to = value.listings[0].id;
+  assert.throws(() => validateCatalog(value, envelope), /connects_to/);
+});
+
+test("external apps cannot declare a package distribution", () => {
+  const value = structuredClone(catalog);
+  const external = value.listings.find((listing) => listing.kind === "external-app");
+  external.distribution.package_id = "external.pkg";
+  assert.throws(() => validateCatalog(value, envelope), /package_id/);
+});
+
 test("strict mode rejects stale reviewed bytes", () => {
   assert.throws(() => validateCatalog(catalog, envelope, {
     strictEnvelope: true,

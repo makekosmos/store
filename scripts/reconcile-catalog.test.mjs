@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
-  buildFixture, formatCatalog, loadIndexRelease, reconcileCatalog, reconcileFiles,
+  buildFixture, compareSemver, formatCatalog, loadIndexRelease, reconcileCatalog, reconcileFiles,
 } from "./reconcile-catalog.mjs";
 import { validateCatalogDocument } from "./validate-catalog.mjs";
 
@@ -284,6 +284,80 @@ test("reconcile refuses a regenerated index release at the last reconciled seque
   await reconcileFiles(options);
   const regenerated = await writeIndexRelease(t, [indexPackage("com.example.one", "1.3.0")], { sequence: 30 });
   await assert.rejects(() => reconcileFiles({ ...options, indexDir: regenerated.dir }), /do not match the last reconciled/);
+});
+
+test("reconcile refuses a regenerated BOM at the last reconciled sequence", async (t) => {
+  const { dir, catalogBytes } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  const regenerated = await mkdtemp(path.join(tmpdir(), "index-release-"));
+  t.after(() => rm(regenerated, { recursive: true, force: true }));
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const signatures = {
+    schema_version: 1,
+    signatures: [{
+      key_id: "test-release",
+      algorithm: "ed25519",
+      signature: sign(null, catalogBytes, privateKey).toString("base64"),
+    }],
+  };
+  const bom = {
+    schema_version: 1,
+    catalog: {
+      sequence: 30,
+      store_sequence: 999,
+      channel: "production",
+      signing_key_id: "test-release",
+      public_key: publicKey.export({ type: "spki", format: "der" }).subarray(-32).toString("base64"),
+    },
+    retired_package_ids: [],
+  };
+  await writeFile(path.join(regenerated, "catalog.json"), catalogBytes);
+  await writeFile(path.join(regenerated, "catalog.envelope.json"), JSON.stringify({ bytes: catalogBytes.toString("base64"), signatures }));
+  await writeFile(path.join(regenerated, "catalog.signatures.json"), JSON.stringify(signatures));
+  await writeFile(path.join(regenerated, "release-bom.v1.json"), JSON.stringify(bom));
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: regenerated }), /release BOM.*regenerated/);
+});
+
+test("reconcile refuses a corrupt reconcile fixture", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  const { dir: stale } = await writeIndexRelease(t, [indexPackage("com.example.one", "0.1.0")], { sequence: 29 });
+  await writeFile(store.fixturePath, "this is not json\n");
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /fixture is not valid JSON/);
+  await writeFile(store.fixturePath, `${JSON.stringify({ package_index_sequence: "oops" })}\n`);
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /package_index_sequence is malformed/);
+  const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  assert.equal(written.listings[0].distribution.version, "1.2.0");
+});
+
+test("reconcile refuses a package version downgrade inside a newer index release", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "0.9.0")]);
+  const index = await loadIndexRelease(dir);
+  const store = storeCatalog([packageListing("com.example.one", "1.2.0")]);
+  assert.throws(() => reconcileCatalog(store, index, { latestSequence: 5 }), /refusing to downgrade/);
+});
+
+test("reconcile still follows equal-precedence and prerelease version changes", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0+build.7")]);
+  const index = await loadIndexRelease(dir);
+  const store = storeCatalog([packageListing("com.example.one", "1.2.0")]);
+  const result = reconcileCatalog(store, index, { latestSequence: 5 });
+  assert.equal(result.catalog.listings[0].distribution.version, "1.2.0+build.7");
+});
+
+test("compareSemver follows semver precedence", () => {
+  assert.equal(compareSemver("1.2.0", "1.2.0"), 0);
+  assert.ok(compareSemver("1.2.0", "1.10.0") < 0);
+  assert.ok(compareSemver("0.9.9", "0.10.0") < 0);
+  assert.ok(compareSemver("1.2.0", "1.2.0-rc.1") > 0);
+  assert.ok(compareSemver("1.0.0-alpha", "1.0.0-alpha.1") < 0);
+  assert.ok(compareSemver("1.0.0-alpha.1", "1.0.0-alpha.beta") < 0);
+  assert.ok(compareSemver("1.0.0-beta.11", "1.0.0-beta.2") > 0);
+  assert.equal(compareSemver("1.0.0+build.1", "1.0.0+build.2"), 0);
 });
 
 test("reconcile reuses a prior candidate when only the validity window differs", async (t) => {
