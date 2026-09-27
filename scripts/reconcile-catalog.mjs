@@ -232,6 +232,26 @@ function stripValidity(document) {
   return content;
 }
 
+// The fixture records the last reconciled Package Index release: its sequence
+// and the SHA-256 of the verified index catalog bytes. Reconciling an older
+// index release would rewind pinned versions and the recorded index sequence,
+// and an equal sequence with different bytes means the published release was
+// regenerated — both fail closed. A byte-identical replay of the last
+// reconciled release, or any newer index sequence, proceeds.
+function assertIndexReleaseProgress(index, fixtureText) {
+  if (fixtureText === null) return;
+  let fixture;
+  try { fixture = JSON.parse(fixtureText); } catch { return; }
+  if (!isObject(fixture) || !Number.isSafeInteger(fixture.package_index_sequence)) return;
+  const lastSequence = fixture.package_index_sequence;
+  if (index.sequence < lastSequence) {
+    fail(`index catalog ${index.sequence} is older than last reconciled index catalog ${lastSequence}; refusing to downgrade Store listings`);
+  }
+  if (index.sequence === lastSequence && fixture.package_index_catalog_sha256 !== index.catalogSha256) {
+    fail(`index catalog ${index.sequence} bytes do not match the last reconciled release; refusing to reconcile a regenerated index release`);
+  }
+}
+
 // Reconciles catalog.json and the fixture against a downloaded index release.
 // With check=true nothing is written and the result only reports drift. When
 // baselinePath names a previous candidate that differs only in the validity
@@ -241,6 +261,8 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
   const index = await loadIndexRelease(indexDir);
   const catalogBytes = await readFile(catalogPath);
   const catalog = JSON.parse(catalogBytes.toString("utf8"));
+  const existingFixture = await readFile(fixturePath, "utf8").catch(() => null);
+  assertIndexReleaseProgress(index, existingFixture);
   const result = reconcileCatalog(catalog, index, { sequence, latestSequence, issuedAt, expiresAt });
   let catalogText = result.catalog ? formatCatalog(result.catalog) : catalogBytes.toString("utf8");
   if (result.catalog && baselinePath) {
@@ -252,7 +274,6 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
     }
   }
   const fixtureText = `${JSON.stringify(buildFixture(index), null, 2)}\n`;
-  const existingFixture = await readFile(fixturePath, "utf8").catch(() => null);
   const catalogChanged = catalogText !== catalogBytes.toString("utf8");
   const fixtureChanged = fixtureText !== existingFixture?.replace(/\r\n/g, "\n");
   if (!check) {
