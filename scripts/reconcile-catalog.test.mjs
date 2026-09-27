@@ -396,6 +396,38 @@ test("reconcile reuses a prior candidate when only the validity window differs",
   assert.equal(await readFile(store.catalogPath, "utf8"), first);
 });
 
+test("reconcile fails cleanly when a new package manifest data is malformed", async (t) => {
+  for (const data of [5, { mappings: { bogus: true } }]) {
+    const malformed = indexPackage("com.example.new", "0.1.0");
+    malformed.manifest.data = data;
+    const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0"), malformed]);
+    const index = await loadIndexRelease(dir);
+    const store = storeCatalog([packageListing("com.example.one", "1.0.0")]);
+    // A non-object data field silently dropped its mappings, and a non-array
+    // mappings field crashed with a TypeError; both must fail as reconcile errors.
+    assert.throws(() => reconcileCatalog(store, index, { latestSequence: 5 }), /cannot be reconciled/, JSON.stringify(data));
+  }
+});
+
+test("a baseline whose validity window has lapsed is not reused", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5 };
+  await reconcileFiles({ ...options, issuedAt: new Date("2026-02-01T00:00:00Z") });
+  const candidate = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  const baselinePath = path.join(store.dir, "prior-catalog.json");
+  // A redelivered dispatch long after the open candidate's expiry must stamp a
+  // fresh window; reusing lapsed bytes would emit a catalog dead on arrival.
+  await writeFile(baselinePath, formatCatalog({
+    ...candidate, issued_at: "2024-01-01T00:00:00.000Z", expires_at: "2025-01-01T00:00:00.000Z",
+  }));
+  await writeFile(store.catalogPath, formatCatalog(storeCatalog([packageListing("com.example.one", "1.0.0")], 5)));
+  await reconcileFiles({ ...options, baselinePath, issuedAt: new Date("2026-03-01T00:00:00Z") });
+  const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  assert.equal(written.issued_at, "2026-03-01T00:00:00.000Z");
+  assert.ok(Date.parse(written.expires_at) > Date.now());
+});
+
 test("a baseline with different semantic content is not reused", async (t) => {
   const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
   const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));

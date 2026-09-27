@@ -26,7 +26,7 @@ function isHttpsUrl(value) {
   if (typeof value !== "string" || !HTTPS_URL.test(value)) return false;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password;
+    return url.protocol === "https:" && /[a-z0-9]/i.test(url.hostname) && !url.username && !url.password;
   } catch {
     return false;
   }

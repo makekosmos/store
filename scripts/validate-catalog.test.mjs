@@ -55,6 +55,17 @@ test("malformed URLs and compatibility ranges fail", () => {
   assert.throws(() => validateCatalog(compatible, envelope), /compatibility/);
 });
 
+test("HTTPS URLs must have a resolvable host", () => {
+  for (const icon of ["https://.", "https://..", "https://-", "https://_"]) {
+    const value = structuredClone(catalog);
+    value.listings[0].icon_url = icon;
+    assert.throws(() => validateCatalog(value, envelope), /icon_url/, icon);
+  }
+  const value = structuredClone(catalog);
+  value.listings[0].icon_url = "https://[::1]/icon.png";
+  validateCatalog(value, envelope);
+});
+
 test("distribution versions follow the semver 2.0.0 grammar", () => {
   for (const version of ["1.0.0-alpha..1", "1.0.0-.", "1.0.0+meta..x", "01.2.3", "1.0.0-01", "1.0.0+..", "1.2"]) {
     const value = structuredClone(catalog);
@@ -173,4 +184,9 @@ test("CLI rejects unrecognized flags instead of silently weakening the gate", ()
   assert.equal(run(["--bogus"]).status, 1);
   assert.equal(run(["--strict"]).status, 1);
   assert.equal(run(["--candidate"]).status, 0);
+});
+
+test("pre-commit validates the catalog as a candidate like the aggregate gate", async () => {
+  const hook = await readFile(new URL("../.githooks/pre-commit", import.meta.url), "utf8");
+  assert.match(hook, /node scripts\/validate-catalog\.mjs --candidate/);
 });
