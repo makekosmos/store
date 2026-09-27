@@ -48,5 +48,6 @@ jobs:
         run: |
           sequence="$(node -p "require('./catalog.json').sequence")"
           gh release create "catalog-${sequence}" catalog.json catalog.envelope.json \
+            --target "${{ github.sha }}" \
             --latest --title "Store catalog ${sequence}" \
             --notes "Signed Kosmos Store catalog sequence ${sequence}."

@@ -260,6 +260,32 @@ test("reconcile is idempotent once the candidate matches the index", async (t) =
   assert.equal(second.fixtureChanged, false);
 });
 
+test("reconcile refuses a stale index release that would downgrade listings", async (t) => {
+  const { dir: current } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: current, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  const { dir: stale } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0")], { sequence: 29 });
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /older than last reconciled/);
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale, check: true }), /older than last reconciled/);
+  const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  assert.equal(written.listings[0].distribution.version, "1.2.0");
+  assert.equal(JSON.parse(await readFile(store.fixturePath, "utf8")).package_index_sequence, 30);
+  const { dir: newer } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.4.0")], { sequence: 31 });
+  const forward = await reconcileFiles({ ...options, indexDir: newer });
+  assert.equal(forward.catalogChanged, true);
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).listings[0].distribution.version, "1.4.0");
+});
+
+test("reconcile refuses a regenerated index release at the last reconciled sequence", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  const regenerated = await writeIndexRelease(t, [indexPackage("com.example.one", "1.3.0")], { sequence: 30 });
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: regenerated.dir }), /do not match the last reconciled/);
+});
+
 test("reconcile reuses a prior candidate when only the validity window differs", async (t) => {
   const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
   const drifted = storeCatalog([packageListing("com.example.one", "1.0.0")], 5);
