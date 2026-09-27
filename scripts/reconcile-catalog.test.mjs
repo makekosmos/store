@@ -434,6 +434,30 @@ test("index release rejects a package that is both published and retired", async
   await assert.rejects(() => loadIndexRelease(empty), /retired_package_ids is invalid/);
 });
 
+test("reconcile fails closed when a non-empty fixture record loses the index sequence", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  // A fixture that kept its packages/hash fields but lost package_index_sequence
+  // is a corrupt record, not an empty bootstrap: treating it as bootstrap would
+  // silently disable the stale-index guard and let an older release rewrite pins.
+  const fixture = JSON.parse(await readFile(store.fixturePath, "utf8"));
+  delete fixture.package_index_sequence;
+  await writeFile(store.fixturePath, `${JSON.stringify(fixture, null, 2)}\n`);
+  const { dir: stale } = await writeIndexRelease(t, [indexPackage("com.example.one", "9.9.9")], { sequence: 29 });
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /missing package_index_sequence/);
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale, check: true }), /missing package_index_sequence/);
+  const { dir: newer } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.4.0")], { sequence: 31 });
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: newer }), /missing package_index_sequence/);
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).listings[0].distribution.version, "1.2.0");
+  // Only a genuinely empty bootstrap record skips the guard.
+  await writeFile(store.fixturePath, "{}\n");
+  const summary = await reconcileFiles({ ...options, indexDir: newer });
+  assert.equal(summary.wrote, true);
+  assert.equal(JSON.parse(await readFile(store.fixturePath, "utf8")).package_index_sequence, 31);
+});
+
 test("reconcile fails closed on a non-positive fixture package index sequence", async (t) => {
   const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
   const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));

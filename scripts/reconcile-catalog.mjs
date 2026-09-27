@@ -293,7 +293,10 @@ function assertIndexReleaseProgress(index, fixtureText) {
   let fixture;
   try { fixture = JSON.parse(fixtureText); } catch { fail("reconcile fixture is not valid JSON"); }
   if (!isObject(fixture)) fail("reconcile fixture is malformed");
-  if (fixture.package_index_sequence === undefined) return;
+  if (fixture.package_index_sequence === undefined) {
+    if (Object.keys(fixture).length === 0) return;
+    fail("reconcile fixture is missing package_index_sequence");
+  }
   if (!Number.isSafeInteger(fixture.package_index_sequence) || fixture.package_index_sequence < 1) {
     fail("reconcile fixture package_index_sequence is malformed");
   }

@@ -20,7 +20,7 @@ function parseSequence(value, label, fallback = 0) {
 }
 
 async function main() {
-  const current = Number(JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8")).sequence);
+  const current = JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8")).sequence;
   const latest = parseSequence(process.env.STORE_LATEST_SEQUENCE, "latest release sequence");
   checkReleaseSequence(current, latest, { tagExists: process.env.STORE_TAG_EXISTS === "true" });
   console.log(`Catalog sequence ${current} is monotonic after ${latest || "no prior release"}.`);
