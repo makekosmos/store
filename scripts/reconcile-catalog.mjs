@@ -68,7 +68,7 @@ export async function loadIndexRelease(dir) {
   const key = publicKeyFromRaw(bom.catalog.public_key);
   if (!Number.isSafeInteger(bom.catalog.store_sequence) || bom.catalog.store_sequence < 0) fail("release BOM store_sequence is invalid");
   const retired = bom.retired_package_ids ?? [];
-  if (!Array.isArray(retired) || retired.some((id) => typeof id !== "string")) fail("release BOM retired_package_ids is invalid");
+  if (!Array.isArray(retired) || retired.some((id) => typeof id !== "string" || !id)) fail("release BOM retired_package_ids is invalid");
 
   const records = signatures?.signatures;
   if (!isObject(signatures) || signatures.schema_version !== 1 || !Array.isArray(records) || records.length === 0) {
@@ -89,6 +89,9 @@ export async function loadIndexRelease(dir) {
     packages.set(manifest.id, { version: manifest.version, manifest });
   }
   if (packages.size === 0) fail("index catalog has no packages");
+  for (const id of retired) {
+    if (packages.has(id)) fail(`${id} is both published and retired in index catalog ${catalog.sequence}`);
+  }
 
   return {
     sequence: catalog.sequence,
@@ -291,7 +294,9 @@ function assertIndexReleaseProgress(index, fixtureText) {
   try { fixture = JSON.parse(fixtureText); } catch { fail("reconcile fixture is not valid JSON"); }
   if (!isObject(fixture)) fail("reconcile fixture is malformed");
   if (fixture.package_index_sequence === undefined) return;
-  if (!Number.isSafeInteger(fixture.package_index_sequence)) fail("reconcile fixture package_index_sequence is malformed");
+  if (!Number.isSafeInteger(fixture.package_index_sequence) || fixture.package_index_sequence < 1) {
+    fail("reconcile fixture package_index_sequence is malformed");
+  }
   const lastSequence = fixture.package_index_sequence;
   if (index.sequence < lastSequence) {
     fail(`index catalog ${index.sequence} is older than last reconciled index catalog ${lastSequence}; refusing to downgrade Store listings`);
@@ -348,16 +353,21 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
   };
 }
 
-function parseArgs(argv) {
+const VALUE_OPTIONS = new Set([
+  "index-dir", "catalog", "fixture", "baseline", "sequence", "latest-sequence", "issued-at", "expires-at",
+]);
+
+export function parseArgs(argv) {
   const args = { check: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check" || arg === "--json") args[arg.slice(2)] = true;
     else if (arg.startsWith("--")) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const name = arg.slice(2);
+      if (!VALUE_OPTIONS.has(name)) fail(`unrecognized argument ${arg}`);
       const value = argv[++index];
       if (value === undefined || value.startsWith("--")) fail(`missing value for ${arg}`);
-      args[key] = value;
+      args[name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
     } else fail(`unexpected argument ${arg}`);
   }
   return args;

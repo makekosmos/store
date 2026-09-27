@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { validateCatalog } from "./validate-catalog.mjs";
 
 const catalog = JSON.parse(await readFile(new URL("../catalog.json", import.meta.url), "utf8"));
@@ -152,4 +154,12 @@ test("candidate accepts exact already-signed bytes and still rejects signature t
   assert.throws(() => validateCatalog(catalog, invalid, {
     candidate: true, catalogBytes: Buffer.from(JSON.stringify(catalog)),
   }), /signature does not verify/);
+});
+
+test("CLI rejects unrecognized flags instead of silently weakening the gate", () => {
+  const script = fileURLToPath(new URL("./validate-catalog.mjs", import.meta.url));
+  const run = (args) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+  assert.equal(run(["--bogus"]).status, 1);
+  assert.equal(run(["--strict"]).status, 1);
+  assert.equal(run(["--candidate"]).status, 0);
 });
