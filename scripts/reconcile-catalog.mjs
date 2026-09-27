@@ -115,8 +115,11 @@ function scaffoldListing(manifest, indexSequence) {
     fail(`${manifest.id}: index catalog ${indexSequence} has no Store listing and the manifest has no description; add the listing manually`);
   }
   const kind = KIND_BY_MANIFEST[manifest.kind] ?? "integration";
+  const data = manifest.data ?? {};
+  const mappings = isObject(data) ? data.mappings ?? [] : null;
+  if (!Array.isArray(mappings)) fail(`${manifest.id}: manifest data cannot be reconciled into a Store listing`);
   const dataCompatibility = [];
-  for (const mapping of manifest.data?.mappings ?? []) {
+  for (const mapping of mappings) {
     if (!isObject(mapping) || typeof mapping.type !== "string" || !ID.test(mapping.type) ||
         typeof mapping.versions !== "string" || !ROLES.has(mapping.direction) || !FIDELITIES.has(mapping.fidelity)) {
       fail(`${manifest.id}: manifest data mapping cannot be reconciled into a Store listing`);
@@ -334,8 +337,15 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
     const baselineText = await readFile(baselinePath, "utf8").catch(() => null);
     if (baselineText !== null) {
       try {
-        if (isDeepStrictEqual(stripValidity(result.catalog), stripValidity(JSON.parse(baselineText)))) catalogText = baselineText;
-      } catch { /* an unparseable baseline is ignored */ }
+        const baseline = JSON.parse(baselineText);
+        validateCatalogDocument(baseline);
+        // Reusing bytes with a lapsed or malformed validity window would emit a
+        // candidate that is dead on arrival; stamp a fresh window instead.
+        if (Date.parse(baseline.expires_at) > Date.now() &&
+            isDeepStrictEqual(stripValidity(result.catalog), stripValidity(baseline))) {
+          catalogText = baselineText;
+        }
+      } catch { /* an unparseable or invalid baseline is ignored */ }
     }
   }
   const fixtureText = `${JSON.stringify(buildFixture(index), null, 2)}\n`;

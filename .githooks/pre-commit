@@ -4,7 +4,7 @@ set -eu
 changed="$(git diff --cached --name-only --diff-filter=ACMRD)"
 case "$changed" in
   *catalog.json*|*catalog.envelope.json*|*scripts/*|*.github/workflows/*|*.githooks/*|*README.md*|*package.json*)
-    node scripts/validate-catalog.mjs
+    node scripts/validate-catalog.mjs --candidate
     node --test scripts/*.test.mjs
     ;;
 esac
