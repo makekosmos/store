@@ -409,6 +409,36 @@ test("reconcile fails cleanly when a new package manifest data is malformed", as
   }
 });
 
+test("reconcile fails closed when a new package manifest target is malformed", async (t) => {
+  for (const targets of [
+    ["bogus-entry"],
+    [{ os: "macos", runtime: "worker" }],
+    [{ os: [5], runtime: "worker" }],
+    [{ os: ["windows"], runtime: "worker" }, "bogus-entry"],
+    [{ os: ["windows"], runtime: "worker" }, { os: "macos", runtime: "worker" }],
+  ]) {
+    const malformed = indexPackage("com.example.new", "0.1.0");
+    malformed.manifest.targets = targets;
+    const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0"), malformed]);
+    const index = await loadIndexRelease(dir);
+    const store = storeCatalog([packageListing("com.example.one", "1.0.0")]);
+    // A non-object target or a present-but-malformed os field was silently
+    // dropped, narrowing availability.platforms in the signed listing; it must
+    // fail closed like every other malformed manifest field.
+    assert.throws(() => reconcileCatalog(store, index, { latestSequence: 5 }), /targets cannot be reconciled/, JSON.stringify(targets));
+  }
+  // A target that simply claims no os contributes nothing; unknown platform
+  // names stay filtered for forward compatibility.
+  const { dir } = await writeIndexRelease(t, [
+    indexPackage("com.example.one", "1.0.0"),
+    indexPackage("com.example.new", "0.1.0", { os: ["windows", "plan9"] }),
+  ]);
+  const index = await loadIndexRelease(dir);
+  const store = storeCatalog([packageListing("com.example.one", "1.0.0")]);
+  const result = reconcileCatalog(store, index, { latestSequence: 5 });
+  assert.deepEqual(result.catalog.listings.at(-1).availability.platforms, ["windows"]);
+});
+
 test("a baseline whose validity window has lapsed is not reused", async (t) => {
   const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
   const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
@@ -426,6 +456,25 @@ test("a baseline whose validity window has lapsed is not reused", async (t) => {
   const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
   assert.equal(written.issued_at, "2026-03-01T00:00:00.000Z");
   assert.ok(Date.parse(written.expires_at) > Date.now());
+});
+
+test("a baseline whose validity window has not begun is not reused", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5 };
+  await reconcileFiles({ ...options, issuedAt: new Date("2026-02-01T00:00:00Z") });
+  const candidate = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  const baselinePath = path.join(store.dir, "prior-catalog.json");
+  // A baseline stamped with a future issued_at is schema-valid and unexpired,
+  // but its window has not begun: reusing those bytes would emit a catalog
+  // that is not yet valid. A fresh window must be stamped instead.
+  await writeFile(baselinePath, formatCatalog({
+    ...candidate, issued_at: "2030-01-01T00:00:00.000Z", expires_at: "2030-12-31T00:00:00.000Z",
+  }));
+  await writeFile(store.catalogPath, formatCatalog(storeCatalog([packageListing("com.example.one", "1.0.0")], 5)));
+  await reconcileFiles({ ...options, baselinePath, issuedAt: new Date("2026-03-01T00:00:00Z") });
+  const written = JSON.parse(await readFile(store.catalogPath, "utf8"));
+  assert.equal(written.issued_at, "2026-03-01T00:00:00.000Z");
 });
 
 test("a baseline with different semantic content is not reused", async (t) => {
