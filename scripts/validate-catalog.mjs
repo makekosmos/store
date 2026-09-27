@@ -158,6 +158,7 @@ export function validateEnvelope(envelope, { publicKey, catalogBytes, strictEnve
 
 export function validateCatalog(catalog, envelope, options = {}) {
   const result = validateCatalogDocument(catalog);
+  assert(Date.parse(catalog.expires_at) > Date.now(), "catalog validity window has elapsed");
   assert(envelope, "committed envelope is required");
   const envelopeResult = validateEnvelope(envelope, options);
   if (options.strictEnvelope) assert(envelopeResult.payload.sequence === result.sequence, "catalog and envelope sequences differ");

@@ -156,6 +156,17 @@ test("candidate accepts exact already-signed bytes and still rejects signature t
   }), /signature does not verify/);
 });
 
+test("an expired catalog is rejected in candidate and plain modes", () => {
+  const expired = structuredClone(catalog);
+  expired.issued_at = "2020-01-01T00:00:00Z";
+  expired.expires_at = "2020-07-01T00:00:00Z";
+  assert.throws(() => validateCatalog(expired, envelope), /validity window has elapsed/);
+  expired.sequence = catalog.sequence + 1;
+  assert.throws(() => validateCatalog(expired, envelope, {
+    candidate: true, catalogBytes: Buffer.from(JSON.stringify(expired)),
+  }), /validity window has elapsed/);
+});
+
 test("CLI rejects unrecognized flags instead of silently weakening the gate", () => {
   const script = fileURLToPath(new URL("./validate-catalog.mjs", import.meta.url));
   const run = (args) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
