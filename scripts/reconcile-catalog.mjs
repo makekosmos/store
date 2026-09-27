@@ -315,7 +315,10 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
   const index = await loadIndexRelease(indexDir);
   const catalogBytes = await readFile(catalogPath);
   const catalog = JSON.parse(catalogBytes.toString("utf8"));
-  const existingFixture = await readFile(fixturePath, "utf8").catch(() => null);
+  const existingFixture = await readFile(fixturePath, "utf8").catch((error) => {
+    if (error?.code === "ENOENT") return null;
+    fail(`cannot read reconcile fixture: ${error.message}`);
+  });
   assertIndexReleaseProgress(index, existingFixture);
   const result = reconcileCatalog(catalog, index, { sequence, latestSequence, issuedAt, expiresAt });
   let catalogText = result.catalog ? formatCatalog(result.catalog) : catalogBytes.toString("utf8");

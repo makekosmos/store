@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -318,6 +318,28 @@ test("reconcile refuses a regenerated BOM at the last reconciled sequence", asyn
   await writeFile(path.join(regenerated, "catalog.signatures.json"), JSON.stringify(signatures));
   await writeFile(path.join(regenerated, "release-bom.v1.json"), JSON.stringify(bom));
   await assert.rejects(() => reconcileFiles({ ...options, indexDir: regenerated }), /release BOM.*regenerated/);
+});
+
+test("reconcile fails closed when the fixture exists but cannot be read", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await reconcileFiles(options);
+  const { dir: stale } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 29 });
+  // A fixture path that exists but is not a readable file must fail closed:
+  // treating it as a missing bootstrap record would skip the stale-index
+  // guard and rewind package_index_sequence below the recorded release.
+  await rm(store.fixturePath);
+  await mkdir(store.fixturePath);
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale }), /cannot read reconcile fixture/);
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: stale, check: true }), /cannot read reconcile fixture/);
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).listings[0].distribution.version, "1.2.0");
+  // A genuinely absent fixture is still the bootstrap case and proceeds.
+  await rm(store.fixturePath, { recursive: true, force: true });
+  const { dir: newer } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.4.0")], { sequence: 31 });
+  const summary = await reconcileFiles({ ...options, indexDir: newer });
+  assert.equal(summary.wrote, true);
+  assert.equal(JSON.parse(await readFile(store.fixturePath, "utf8")).package_index_sequence, 31);
 });
 
 test("reconcile refuses a corrupt reconcile fixture", async (t) => {
