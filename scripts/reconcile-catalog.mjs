@@ -48,8 +48,12 @@ export async function loadIndexRelease(dir) {
   const catalogBytes = await readFile(path.join(dir, "catalog.json")).catch(() => fail("index catalog.json is missing"));
   let catalog;
   try { catalog = JSON.parse(catalogBytes.toString("utf8")); } catch { fail("index catalog.json is not JSON"); }
-  const envelope = JSON.parse(await readFile(path.join(dir, "catalog.envelope.json"), "utf8").catch(() => fail("index catalog.envelope.json is missing")));
-  const signatures = JSON.parse(await readFile(path.join(dir, "catalog.signatures.json"), "utf8").catch(() => fail("index catalog.signatures.json is missing")));
+  const envelopeText = await readFile(path.join(dir, "catalog.envelope.json"), "utf8").catch(() => fail("index catalog.envelope.json is missing"));
+  let envelope;
+  try { envelope = JSON.parse(envelopeText); } catch { fail("index catalog.envelope.json is not JSON"); }
+  const signaturesText = await readFile(path.join(dir, "catalog.signatures.json"), "utf8").catch(() => fail("index catalog.signatures.json is missing"));
+  let signatures;
+  try { signatures = JSON.parse(signaturesText); } catch { fail("index catalog.signatures.json is not JSON"); }
   const bomBytes = await readFile(path.join(dir, "release-bom.v1.json")).catch(() => fail("index release-bom.v1.json is missing"));
   let bom;
   try { bom = JSON.parse(bomBytes.toString("utf8")); } catch { fail("index release-bom.v1.json is not JSON"); }
@@ -338,6 +342,18 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
   });
   assertIndexReleaseProgress(index, existingFixture);
   const result = reconcileCatalog(catalog, index, { sequence, latestSequence, issuedAt, expiresAt });
+  // The emitted catalog+fixture pair feeds a candidate that must pass
+  // `bun run check`: its sequence must satisfy the store_sequence recorded by
+  // the index release BOM, and its validity window must cover now. Emitting
+  // anything else produces a candidate that is dead on arrival, so fail before
+  // touching files.
+  const emitted = result.catalog ?? catalog;
+  if (emitted.sequence < index.bom.catalog.store_sequence) {
+    fail(`Store catalog sequence ${emitted.sequence} is below the store_sequence ${index.bom.catalog.store_sequence} recorded in index release BOM ${index.sequence}`);
+  }
+  if (!(Date.parse(emitted.issued_at) <= Date.now() && Date.parse(emitted.expires_at) > Date.now())) {
+    fail("emitted catalog validity window does not cover now");
+  }
   let catalogText = result.catalog ? formatCatalog(result.catalog) : catalogBytes.toString("utf8");
   if (result.catalog && baselinePath) {
     const baselineText = await readFile(baselinePath, "utf8").catch(() => null);
@@ -364,7 +380,7 @@ export async function reconcileFiles({ indexDir, catalogPath, fixturePath, basel
   }
   return {
     indexSequence: index.sequence,
-    sequence: (result.catalog ?? catalog).sequence,
+    sequence: emitted.sequence,
     updated: result.updated,
     added: result.added,
     catalogChanged,
