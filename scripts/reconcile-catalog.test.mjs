@@ -141,7 +141,7 @@ test("reconcile syncs versions, advances the sequence, and rewrites the fixture"
   const { dir } = await writeIndexRelease(t, [
     indexPackage("com.example.one", "1.2.0"),
     indexPackage("com.example.two", "2.0.0"),
-  ], { sequence: 30, storeSequence: 7 });
+  ], { sequence: 30, storeSequence: 6 });
   const store = await writeStore(t, storeCatalog([
     packageListing("com.example.one", "1.0.0"),
     packageListing("com.example.two", "2.0.0"),
@@ -163,7 +163,7 @@ test("reconcile syncs versions, advances the sequence, and rewrites the fixture"
   validateCatalogDocument(written);
   const fixture = JSON.parse(await readFile(store.fixturePath, "utf8"));
   assert.equal(fixture.package_index_sequence, 30);
-  assert.equal(fixture.store_sequence, 7);
+  assert.equal(fixture.store_sequence, 6);
   assert.equal(fixture.packages["com.example.one"], "1.2.0");
 });
 
@@ -566,4 +566,47 @@ test("reconcile arguments reject unknown options and inline values", () => {
     parseArgs(["--index-dir", "out/index", "--check", "--json", "--latest-sequence", "19"]),
     { check: true, json: true, indexDir: "out/index", latestSequence: "19" },
   );
+});
+
+test("reconcile refuses to emit a catalog behind the index BOM store_sequence", async (t) => {
+  // The index release BOM records the Store sequence it was built against, and
+  // the rewritten fixture carries it; a candidate whose sequence is below that
+  // floor can never pass the committed gate (catalog.sequence >= store_sequence),
+  // so reconcile must fail before writing the pair.
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")], { sequence: 30, storeSequence: 30 });
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5, issuedAt: new Date("2026-02-01T00:00:00Z") };
+  await assert.rejects(() => reconcileFiles(options), /store_sequence/);
+  await assert.rejects(() => reconcileFiles({ ...options, check: true }), /store_sequence/);
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).sequence, 5);
+  assert.equal(JSON.parse(await readFile(store.fixturePath, "utf8")).package_index_sequence, undefined);
+
+  // The unchanged-catalog path pairs the same fixture with the committed
+  // sequence, so the floor applies there too.
+  const { dir: inSync } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0")], { sequence: 30, storeSequence: 30 });
+  await assert.rejects(() => reconcileFiles({ ...options, indexDir: inSync }), /store_sequence/);
+});
+
+test("reconcile refuses to emit a validity window that is dead on arrival", async (t) => {
+  // A candidate stamped outside now can never pass validateCatalog, which the
+  // candidate gate runs on the emitted files; fail during reconcile instead.
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.2.0")]);
+  const store = await writeStore(t, storeCatalog([packageListing("com.example.one", "1.0.0")], 5));
+  const options = { indexDir: dir, catalogPath: store.catalogPath, fixturePath: store.fixturePath, latestSequence: 5 };
+  await assert.rejects(() => reconcileFiles({
+    ...options, issuedAt: new Date("2030-01-01T00:00:00Z"), expiresAt: new Date("2030-06-01T00:00:00Z"),
+  }), /validity window does not cover now/);
+  await assert.rejects(() => reconcileFiles({
+    ...options, issuedAt: new Date("2020-01-01T00:00:00Z"), expiresAt: new Date("2020-06-01T00:00:00Z"),
+  }), /validity window does not cover now/);
+  assert.equal(JSON.parse(await readFile(store.catalogPath, "utf8")).sequence, 5);
+});
+
+test("index release rejects malformed envelope or signatures JSON", async (t) => {
+  const { dir } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0")]);
+  await writeFile(path.join(dir, "catalog.envelope.json"), "not json at all");
+  await assert.rejects(() => loadIndexRelease(dir), /catalog\.envelope\.json is not JSON/);
+  const { dir: dir2 } = await writeIndexRelease(t, [indexPackage("com.example.one", "1.0.0")]);
+  await writeFile(path.join(dir2, "catalog.signatures.json"), "{ unterminated");
+  await assert.rejects(() => loadIndexRelease(dir2), /catalog\.signatures\.json is not JSON/);
 });

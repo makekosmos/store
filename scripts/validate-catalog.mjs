@@ -21,6 +21,8 @@ const TIERS = new Set(["kosmos", "verified", "community"]);
 export const PLATFORMS = new Set(["windows", "macos", "linux", "ios", "android", "web"]);
 export const ROLES = new Set(["import", "export", "sync"]);
 export const FIDELITIES = new Set(["lossless", "lossy"]);
+const PACKAGE_DISTRIBUTION_FIELDS = new Set(["package_id", "version", "connects_to"]);
+const EXTERNAL_APP_DISTRIBUTION_FIELDS = new Set(["official_url", "connects_to"]);
 
 function isHttpsUrl(value) {
   if (typeof value !== "string" || !HTTPS_URL.test(value)) return false;
@@ -84,9 +86,12 @@ export function validateCatalogDocument(catalog) {
     assert(Array.isArray(listing.screenshots) && listing.screenshots.length <= 12 && listing.screenshots.every(isHttpsUrl), `${listing.id}: screenshots must be HTTPS`);
     assert(listing.icon_url === null || isHttpsUrl(listing.icon_url), `${listing.id}: icon_url must be HTTPS or null`);
     assert(isObject(listing.distribution), `${listing.id}: distribution is required`);
+    const allowedFields = listing.kind === "external-app" ? EXTERNAL_APP_DISTRIBUTION_FIELDS : PACKAGE_DISTRIBUTION_FIELDS;
+    for (const field of Object.keys(listing.distribution)) {
+      assert(allowedFields.has(field), `${listing.id}: unexpected distribution field "${field}"`);
+    }
     if (listing.kind === "external-app") {
       assert(isHttpsUrl(listing.distribution.official_url), `${listing.id}: external app official_url is required`);
-      assert(listing.distribution.package_id === undefined, `${listing.id}: external app must not declare a package_id`);
     } else {
       assert(typeof listing.distribution.package_id === "string" && ID.test(listing.distribution.package_id) && SEMVER.test(listing.distribution.version), `${listing.id}: package distribution requires package_id and semver version`);
       assert(!packageIds.has(listing.distribution.package_id), `duplicate package identity: ${listing.distribution.package_id}`);

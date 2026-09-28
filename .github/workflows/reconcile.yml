@@ -22,6 +22,12 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
+      - name: Reconcile only runs on the default branch
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "refusing to reconcile from ref ${GITHUB_REF_NAME}; dispatch on the default branch" >&2
+            exit 1
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -39,11 +45,15 @@ jobs:
           tag="${INPUT_TAG:-${DISPATCH_TAG:-}}"
           if [[ -z "$tag" && -n "${DISPATCH_SEQUENCE:-}" ]]; then tag="catalog-${DISPATCH_SEQUENCE}"; fi
           if [[ -z "$tag" ]]; then
-            tag="$(gh release list --repo makekosmos/package-index --limit 500 --json tagName --jq '.[].tagName' \
+            tag="$(gh release list --repo makekosmos/package-index --limit 500 --exclude-drafts --json tagName --jq '.[].tagName' \
               | sed -n 's/^catalog-\([0-9][0-9]*\)$/catalog-\1/p' | sort -t- -k2,2n | tail -1)"
           fi
           [[ "$tag" =~ ^catalog-[0-9]+$ ]] || { echo "cannot resolve a Package Index catalog release" >&2; exit 1; }
           gh release view "$tag" --repo makekosmos/package-index >/dev/null
+          if [[ "$(gh release view "$tag" --repo makekosmos/package-index --json isDraft --jq .isDraft)" != "false" ]]; then
+            echo "Package Index release $tag is a draft; refusing to reconcile an unpublished release" >&2
+            exit 1
+          fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Download Package Index release assets
@@ -63,7 +73,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           bun install --frozen-lockfile
-          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --json tagName --jq '.[].tagName' \
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
             | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
           branch="reconcile/index-${{ steps.index.outputs.tag }}"
           git fetch origin "+refs/heads/${branch}:refs/remotes/origin/${branch}" || echo "no existing ${branch} branch"

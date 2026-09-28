@@ -10,6 +10,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Publish only runs on the default branch
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "refusing to publish from ref ${GITHUB_REF_NAME}; dispatch on the default branch" >&2
+            exit 1
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -27,7 +33,7 @@ jobs:
             echo "catalog-${sequence} tag already exists; immutable tags cannot be replaced"
             exit 1
           fi
-          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --json tagName --jq '.[].tagName' | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' | sed -n 's/^catalog-\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)"
           STORE_LATEST_SEQUENCE="${latest:-0}" node scripts/check-release-sequence.mjs
       - name: Pin reviewed catalog bytes
         id: reviewed

@@ -27,9 +27,10 @@ original key; never overwrite a published tag.
 ## Secret-free validation
 
 Pull requests run a validator that checks catalog schema, unique identities,
-valid package/external distributions, HTTPS URLs, validity windows, listing
-references (`connects_to`, compatibility `via`, `replacement_id`) and
-replacement cycles, and the committed envelope signature without accessing
+valid package/external distributions (rejecting fields that do not belong to
+the listing kind), HTTPS URLs, validity windows, listing references
+(`connects_to`, compatibility `via`, `replacement_id`) and replacement
+cycles, and the committed envelope signature without accessing
 `STORE_SIGNING_KEY`:
 
 ```powershell

@@ -125,6 +125,20 @@ test("external apps cannot declare a package distribution", () => {
   assert.throws(() => validateCatalog(value, envelope), /package_id/);
 });
 
+test("distribution carries only the fields its kind allows", () => {
+  const externalVersion = structuredClone(catalog);
+  externalVersion.listings.find((listing) => listing.kind === "external-app").distribution.version = "9.9.9";
+  assert.throws(() => validateCatalog(externalVersion, envelope), /unexpected distribution field "version"/);
+
+  const packageUrl = structuredClone(catalog);
+  packageUrl.listings.find((listing) => listing.kind === "kosmos-package").distribution.official_url = "https://unvetted.example";
+  assert.throws(() => validateCatalog(packageUrl, envelope), /unexpected distribution field "official_url"/);
+
+  const typo = structuredClone(catalog);
+  typo.listings[0].distribution.versoin = "1.0.0";
+  assert.throws(() => validateCatalog(typo, envelope), /unexpected distribution field "versoin"/);
+});
+
 test("strict mode rejects stale reviewed bytes", () => {
   assert.throws(() => validateCatalog(catalog, envelope, {
     strictEnvelope: true,
@@ -224,4 +238,18 @@ test("CLI rejects unrecognized flags instead of silently weakening the gate", ()
 test("pre-commit validates the catalog as a candidate like the aggregate gate", async () => {
   const hook = await readFile(new URL("../.githooks/pre-commit", import.meta.url), "utf8");
   assert.match(hook, /node scripts\/validate-catalog\.mjs --candidate/);
+});
+
+test("publish and reconcile only run on the default branch and ignore drafts", async () => {
+  const publish = await readFile(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8");
+  const reconcile = await readFile(new URL("../.github/workflows/reconcile.yml", import.meta.url), "utf8");
+  // Dispatching on a reconcile/feature branch would sign or PR unmerged refs.
+  assert.match(publish, /GITHUB_REF_NAME.*!= "main"/);
+  assert.match(reconcile, /GITHUB_REF_NAME.*!= "main"/);
+  // Draft catalog-N releases carry no tag yet; counting them as immutable
+  // releases wedges the monotonic sequence gate.
+  assert.match(publish, /--exclude-drafts/);
+  for (const match of reconcile.matchAll(/gh release list[^|\n]+/g)) assert.match(match[0], /--exclude-drafts/);
+  // A manually named index release must be published, not a draft.
+  assert.match(reconcile, /--json isDraft/);
 });
